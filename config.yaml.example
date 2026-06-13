@@ -59,14 +59,17 @@ debate:
 visual_check:
   enabled: true              # 生成后是否使用视觉模型检查排版
   threshold: 7.0             # 总评分阈值 (0-10)
+  api_key: ""                # 不填则复用 default_provider 的 API Key
+  base_url: ""               # 不填则复用 default_provider 的 base_url
   provider: auto             # 视觉模型 provider (auto = 跟随 default_provider)
   model: ""                  # 留空 = 使用 fast_model
 
 # --- AI 图片生成 (DALL-E / 兼容 API) ---
 image_gen:
-  provider: auto       # auto = 跟随 default_provider; 未配置 API Key 时自动跳过
-  model: ""            # 如 "dall-e-3"；留空 = 使用 fast_model
+  api_key: ""          # 不填则复用 default_provider 的 API Key
   base_url: ""         # 完整端点 URL; 留空默认 https://api.openai.com/v1/images/generations
+  provider: auto       # auto = 跟随 default_provider
+  model: ""            # 如 "dall-e-3"；留空 = 使用 fast_model
 
 # --- 模板与风格 ---
 template_path: ""            # .pptx 模板路径

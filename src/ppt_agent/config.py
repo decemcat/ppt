@@ -66,11 +66,14 @@ class VisualCheckConfig(BaseModel):
     threshold: float = 7.0
     provider: str = "auto"
     model: str = ""
+    api_key: str = ""
+    base_url: str = ""
 
 
 class ImageGenConfig(BaseModel):
     provider: str = "auto"
     model: str = ""
+    api_key: str = ""
     base_url: str = ""
 
 

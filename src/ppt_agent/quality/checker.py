@@ -32,7 +32,11 @@ class VisualQualityChecker:
     def __init__(self, config: Config, router: ModelRouter):
         self.config = config
         vc = config.visual_check
-        if vc.provider != "auto" and vc.model:
+        if vc.api_key:
+            from ppt_agent.llm.openai_provider import OpenAIProvider
+            provider = OpenAIProvider(api_key=vc.api_key, base_url=vc.base_url)
+            model = vc.model or "gpt-4o"
+        elif vc.provider != "auto" and vc.model:
             provider = router.get_provider(vc.provider)
             model = vc.model
         else:

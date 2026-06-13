@@ -87,13 +87,16 @@ debate:
 visual_check:
   enabled: true
   threshold: 7.0          # score threshold to pass
-  provider: auto           # auto uses default_provider; or name like "deepseek"
-  model: ""                # override vision model (empty = use fast_model)
+  api_key: ""             # uses default_provider's if empty
+  base_url: ""
+  provider: auto
+  model: ""
 
 image_gen:                 # AI image generation (DALL-E / compatible)
-  provider: auto            # uses default_provider if auto
-  model: ""                 # e.g., "dall-e-3"; empty = use fast_model
-  base_url: ""              # full endpoint URL; empty = https://api.openai.com/v1/images/generations
+  api_key: ""              # uses default_provider's if empty
+  base_url: ""             # full endpoint URL; default: https://api.openai.com/v1/images/generations
+  provider: auto
+  model: ""                # e.g., "dall-e-3"
 
 template_path: /path/to/company-template.pptx
 style_path: /path/to/saved-style.yaml

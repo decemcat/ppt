@@ -13,16 +13,22 @@ class ImageGenerator:
 
     def __init__(self, config: Config, router: ModelRouter):
         ig = config.image_gen
-        if ig.provider != "auto":
+        if ig.api_key:
+            self.api_key = ig.api_key
+            self.url = ig.base_url or DEFAULT_IMAGE_URL
+            self.model = ig.model or "dall-e-3"
+        elif ig.provider != "auto":
             provider = router.get_provider(ig.provider)
             provider_config = config.llm.providers[ig.provider]
-            model = ig.model or provider_config.fast_model
+            self.api_key = provider_config.api_key
+            self.url = ig.base_url or DEFAULT_IMAGE_URL
+            self.model = ig.model or provider_config.fast_model
         else:
             provider, model = router.get_model("image_gen")
             provider_config = config.llm.providers[config.llm.default_provider]
-        self.api_key = provider_config.api_key
-        self.model = model
-        self.url = ig.base_url or DEFAULT_IMAGE_URL
+            self.api_key = provider_config.api_key
+            self.url = ig.base_url or DEFAULT_IMAGE_URL
+            self.model = model
 
     def generate(self, prompt: str, size: str = "1024x1024", output_path: str | None = None) -> str:
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
