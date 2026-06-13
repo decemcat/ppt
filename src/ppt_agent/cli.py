@@ -53,6 +53,16 @@ def list_sessions(ctx):
             click.echo(f"  {session.created_at[:10]} [{session.session_id}] {session.topic}")
 
 
+@cli.command()
+@click.option("--serve", is_flag=True, help="Start web server instead of CLI")
+@click.pass_context
+def wiki(ctx, serve):
+    """Open LLM Wiki browser."""
+    from ppt_agent.research.manager import ResearchManager
+    mgr = ResearchManager(ctx.obj["config"])
+    mgr.open_wiki(serve=serve)
+
+
 def main():
     cli(obj={})
 
