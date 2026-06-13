@@ -1,6 +1,6 @@
 # AGENTS.md
 
-A Python CLI tool (`ppt-agent`) for generating technical solution PPTs from `.pptx` templates.
+A Python CLI tool (`ppt`) for generating technical solution PPTs from `.pptx` templates.
 
 ## Current state
 
@@ -11,14 +11,14 @@ A Python CLI tool (`ppt-agent`) for generating technical solution PPTs from `.pp
 
 ## Known commands
 
-- `python3 -m venv .venv && .venv/bin/pip install -e .` — set up venv + install package
+- `./install.sh` — one-click setup (venv + pip install + config template + PATH link)
 - `.venv/bin/python -m pytest tests/ -v` — run all tests
 - `.venv/bin/python -m pytest tests/test_foo.py::TestClass::test_method -v` — run single test
-- `.venv/bin/python -m ppt_agent --help` — CLI help
-- `.venv/bin/python -m ppt_agent new "<topic>" --template <path>` — start new project
-- `.venv/bin/python -m ppt_agent new "<topic>" --template <path> --style <name>` — start with style profile
-- `.venv/bin/python -m ppt_agent wiki` — open LLM Wiki CLI browser
-- `.venv/bin/python -m ppt_agent wiki --serve` — open LLM Wiki web server (localhost:8765)
+- `ppt --help` — CLI help (after install.sh)
+- `ppt new "<topic>" --template <path>` — start new project
+- `ppt new "<topic>" --template <path> --style <name>` — start with style profile
+- `ppt wiki` — open LLM Wiki CLI browser
+- `ppt wiki --serve` — open LLM Wiki web server (localhost:8765)
 
 - `.venv/bin/python -m ppt_agent style-extract <pptx_path>` — extract style from .pptx
 - `.venv/bin/python -m ppt_agent style-list` — list saved style profiles

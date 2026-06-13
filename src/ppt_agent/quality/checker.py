@@ -31,9 +31,14 @@ class VisualCheckResult(BaseModel):
 class VisualQualityChecker:
     def __init__(self, config: Config, router: ModelRouter):
         self.config = config
-        provider, model = router.get_model("daily_chat")
+        vc = config.visual_check
+        if vc.provider != "auto" and vc.model:
+            provider = router.get_provider(vc.provider)
+            model = vc.model
+        else:
+            provider, model = router.get_model("visual_check")
         self.judge = VisionJudge(provider, model)
-        self.threshold = config.visual_check.threshold
+        self.threshold = vc.threshold
 
     def check(self, pptx_path: str) -> VisualCheckResult:
         images = SlideCapture.pptx_to_images(pptx_path)

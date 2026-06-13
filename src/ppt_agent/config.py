@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field
 
 class LLMProviderConfig(BaseModel):
     api_key: str = ""
+    base_url: str = ""
+    type: str = ""
     fast_model: str = "gpt-4o-mini"
     deep_model: str = "o3"
 
@@ -26,6 +28,7 @@ class LLMConfig(BaseModel):
             "daily_chat": "fast",
             "deep_reasoning": "deep",
             "adversarial": "dual",
+            "visual_check": "fast",
         }
     )
 
@@ -61,6 +64,7 @@ class VisualCheckConfig(BaseModel):
     enabled: bool = True
     threshold: float = 7.0
     provider: str = "auto"
+    model: str = ""
 
 
 class Config(BaseModel):
@@ -87,4 +91,10 @@ def load_config(path: str | None = None) -> Config:
         if data is None:
             return Config()
         return Config.model_validate(data)
-    return Config()
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    default_config = Config()
+    config_path.write_text(
+        yaml.dump(default_config.model_dump(), allow_unicode=True, default_flow_style=False),
+        encoding="utf-8",
+    )
+    return default_config

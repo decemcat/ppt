@@ -1,0 +1,67 @@
+# ppt — 配置文件
+# 路径: ~/.ppt-agent/config.yaml
+#
+# 首次运行 `ppt` 会自动生成此文件。
+# 填写 LLM API Key 即可开始使用。
+
+# --- LLM 配置 ---
+llm:
+  default_provider: openai  # 默认使用的 provider
+
+  providers:
+    # OpenAI (也适用于任何兼容 OpenAI API 的服务)
+    openai:
+      api_key: ""            # 你的 API Key
+      base_url: ""           # 留空使用默认; 自定义如 https://api.deepseek.com/v1
+      type: openai           # openai / anthropic / openai_compatible
+      fast_model: gpt-4o-mini
+      deep_model: o3
+
+    # Anthropic Claude
+    anthropic:
+      api_key: ""
+      base_url: ""
+      type: anthropic
+      fast_model: claude-sonnet-4-20250514
+      deep_model: claude-opus-4-20250514
+
+    # 其他兼容 OpenAI API 的服务 (DeepSeek, Ollama, vLLM 等)
+    # deepseek:
+    #   api_key: sk-xxx
+    #   base_url: https://api.deepseek.com/v1
+    #   type: openai_compatible
+    #   fast_model: deepseek-chat
+    #   deep_model: deepseek-reasoner
+
+  routing:                   # route → tier 映射
+    daily_chat: fast
+    deep_reasoning: deep
+    adversarial: dual
+    visual_check: fast
+
+# --- 代理 (GFW 环境) ---
+proxy:
+  enabled: false
+  http: http://127.0.0.1:7890
+  https: http://127.0.0.1:7890
+
+# --- 知识库 ---
+knowledge:
+  max_age_days: 180          # 超过此天数的资料标记为可能过时
+
+# --- 对抗辩论 ---
+debate:
+  enabled: true              # 生成前是否进行多角色辩论
+  max_rounds: 2
+  min_logic_score: 85        # 低于此分数触发重新辩论
+
+# --- 视觉质检 ---
+visual_check:
+  enabled: true              # 生成后是否使用视觉模型检查排版
+  threshold: 7.0             # 总评分阈值 (0-10)
+  provider: auto             # 视觉模型 provider (auto = 跟随 default_provider)
+  model: ""                  # 留空 = 使用 fast_model
+
+# --- 模板与风格 ---
+template_path: ""            # .pptx 模板路径
+style_path: ""               # 默认风格配置文件路径

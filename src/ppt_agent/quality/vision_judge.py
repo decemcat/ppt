@@ -1,6 +1,5 @@
 from __future__ import annotations
 import json
-import base64
 from pathlib import Path
 from ppt_agent.llm.base import LLMProvider
 
@@ -25,31 +24,14 @@ class VisionJudge:
 
     def evaluate_slide(self, image_path: str) -> dict:
         try:
-            return self._evaluate_with_api(image_path)
+            image_data = Path(image_path).read_bytes()
+            text = self.provider.chat_vision(VISION_PROMPT, [image_data], model=self.model, max_tokens=500)
+            text = text.strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+            return json.loads(text)
         except Exception:
             return {
                 "layout_balance": 0, "text_density": 0, "color_consistency": 0,
                 "visual_hierarchy": 0, "cleanliness": 0, "overall": 0, "issues": ["视觉评审失败"],
             }
-
-    def _evaluate_with_api(self, image_path: str) -> dict:
-        img_data = base64.b64encode(Path(image_path).read_bytes()).decode()
-        ext = Path(image_path).suffix.lstrip(".") or "png"
-        import openai
-        client = openai.OpenAI()
-        response = client.chat.completions.create(
-            model=self.model,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": VISION_PROMPT},
-                    {"type": "image_url", "image_url": {"url": f"data:image/{ext};base64,{img_data}"}},
-                ],
-            }],
-            max_tokens=500,
-        )
-        text = response.choices[0].message.content or ""
-        text = text.strip()
-        if text.startswith("```"):
-            text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
-        return json.loads(text)

@@ -1,0 +1,125 @@
+# ppt
+
+A Python CLI tool for generating professional technical solution presentations from `.pptx` templates, powered by LLMs.
+
+## Quick Start
+
+```bash
+# 一键安装
+./install.sh
+
+# 编辑配置，填写 API Key
+vim ~/.ppt-agent/config.yaml
+
+# 开始使用
+ppt new "Kubernetes Autoscaling Architecture" --template company.pptx
+```
+
+## Features
+
+- **Research Pipeline** — Web search, arXiv/Semantic Scholar papers, GitHub repo analysis, automatic knowledge graph construction
+- **Adversarial Discussion** — Multi-agent debate (critic/proponent/judge) to improve slide logic before generation
+- **Visual Quality Check** — Vision model evaluates per-slide layout, density, color, hierarchy, and cleanliness
+- **Style Learning** — Extract colors, fonts, and layouts from any `.pptx` and apply as a reusable style profile
+- **LLM Wiki** — CLI browser and web server (localhost:8765) to explore the research knowledge base
+- **Hybrid Rendering** — Shape Renderer (python-pptx native) + Image Fallback (Mermaid→PNG) for diagrams
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `new "<topic>"` | Start a new PPT project |
+| `resume <session>` | Resume a saved session |
+| `list` | List all saved sessions |
+| `wiki` | Open LLM Wiki CLI browser |
+| `wiki --serve` | Start Wiki web server (localhost:8765) |
+| `style-extract <pptx>` | Extract style profile from a `.pptx` |
+| `style-list` | List saved style profiles |
+| `style-show <name>` | Show style profile details |
+
+### `new` options
+
+| Option | Description |
+|--------|-------------|
+| `-t, --template PATH` | Path to `.pptx` template |
+| `-m, --model TEXT` | LLM model override |
+| `--style NAME` | Apply saved style profile |
+| `--no-debate` | Skip adversarial discussion |
+| `--debate-rounds N` | Number of debate rounds (default: 2) |
+| `--no-visual-check` | Skip visual quality check |
+
+## Configuration
+
+`~/.ppt-agent/config.yaml`:
+
+```yaml
+llm:
+  default_provider: openai
+  providers:
+    openai:
+      api_key: sk-xxx
+      fast_model: gpt-4o-mini
+      deep_model: o3
+    anthropic:
+      api_key: sk-ant-xxx
+      fast_model: claude-sonnet-4-20250514
+      deep_model: claude-opus-4-20250514
+    deepseek:                    # any OpenAI-compatible API
+      api_key: sk-xxx
+      base_url: https://api.deepseek.com/v1
+      type: openai_compatible
+      fast_model: deepseek-chat
+      deep_model: deepseek-reasoner
+
+proxy:                    # optional, for GFW
+  enabled: true
+  http: http://127.0.0.1:7890
+  https: http://127.0.0.1:7890
+
+knowledge:
+  max_age_days: 180       # staleness warning threshold
+
+debate:
+  max_rounds: 2
+  min_logic_score: 85
+  enabled: true
+
+visual_check:
+  enabled: true
+  threshold: 7.0          # score threshold to pass
+  provider: auto           # auto uses default_provider; or name like "deepseek"
+  model: ""                # override vision model (empty = use fast_model)
+
+template_path: /path/to/company-template.pptx
+style_path: /path/to/saved-style.yaml
+```
+
+## How It Works
+
+```
+new "Topic"
+  ├── ResearchManager — web search, papers, GitHub analysis
+  ├── Orchestrator — LLM-driven slide framework design
+  ├── AdversarialDiscussion — multi-agent debate & human ruling
+  ├── SlideGenerator — hybrid shape/image rendering
+  └── VisualQualityChecker — vision model evaluation
+```
+
+## Development
+
+```bash
+# 安装 (含 venv + pip install + PATH 链接)
+./install.sh
+
+# 运行测试
+.venv/bin/python -m pytest tests/ -v
+
+# 运行单个测试
+.venv/bin/python -m pytest tests/test_style.py::TestStyleProfile::test_default_profile -v
+```
+
+Python 3.11+ required. Uses PEP 668 compliant venv.
+
+## License
+
+MIT
