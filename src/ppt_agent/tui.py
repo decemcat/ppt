@@ -17,15 +17,14 @@ class PPTTUI(App):
     #left { width: 2fr; background: $surface; }
     #right { width: 1fr; background: $panel; padding: 1; }
     #logs { height: 1fr; background: $surface; padding: 0 1; }
+    #input_area { background: $surface; padding: 1; height: auto; }
+    #input { width: 100%; height: 3; padding: 1; background: $panel; border: none; }
+    Input:focus { border: none; }
     #right_title { padding: 1 0 0 0; color: $text-muted; text-style: bold; }
     #task_desc { padding: 0 0 1 0; color: $text; }
     #stat_block { padding: 1 0; }
-    #stat_line { padding: 0; }
     #todo_title { padding: 1 0 0 0; color: $text-muted; text-style: bold; }
     #todo_list { padding: 0; }
-    #input_area { background: $surface; padding: 1; }
-    #input { width: 100%; height: 100%; min-height: 4; padding: 1; background: $panel; border: none; }
-    Input:focus { border: none; }
     #status_bar { height: 1; padding: 0 1; background: $panel-darken-1; color: $text-muted; }
     """
 
@@ -47,6 +46,7 @@ class PPTTUI(App):
         with Horizontal(id="main"):
             with Vertical(id="left"):
                 yield RichLog(id="logs", markup=True, highlight=True, wrap=True)
+                yield Container(Input(id="input", placeholder="输入... (/done 结束)"), id="input_area")
             with Vertical(id="right"):
                 yield Static("Task", id="right_title")
                 yield Static("等待开始...", id="task_desc")
@@ -57,7 +57,6 @@ class PPTTUI(App):
                 )
                 yield Static("Todo", id="todo_title")
                 yield Vertical(id="todo_list")
-        yield Container(Input(id="input", placeholder="输入你的想法... (/done 结束讨论)"), id="input_area")
         yield Static(id="status_bar")
 
     def on_mount(self):
