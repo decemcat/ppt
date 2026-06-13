@@ -3,7 +3,6 @@ from rich.console import Console
 from rich.live import Live
 from rich.table import Table
 from rich.panel import Panel
-from rich.layout import Layout
 from rich import box
 from datetime import datetime
 import threading
@@ -64,52 +63,27 @@ class TUI:
             self.context_usage = info
         self._refresh()
 
-    def _make_layout(self) -> Layout:
-        layout = Layout()
-        layout.split_column(
-            Layout(name="header", size=1),
-            Layout(name="body"),
-        )
-        tasks_table = Table(box=box.SIMPLE, show_header=False, padding=(0, 1))
-        tasks_table.add_column("", width=2)
-        tasks_table.add_column("Task", style="bold")
+    def _make_table(self) -> Table:
+        grid = Table.grid(padding=(0, 1))
+        grid.add_column(style="bold")
         for name, status in self.tasks.items():
-            tasks_table.add_row(status, name)
-        log_text = "\n".join(self.logs[-30:]) if self.logs else "等待开始..."
-        log_panel = Panel(log_text, title="Log", border_style="green")
-        task_panel = Panel(tasks_table, title="Progress", border_style="blue")
-        layout["header"].update(
-            Panel(f"Context: {self.context_usage}", box=box.SIMPLE, padding=(0, 1))
-        )
-        layout["body"].split_row(
-            Layout(log_panel, ratio=2),
-            Layout(task_panel, ratio=1),
-        )
-        return layout
+            grid.add_row(f"    {status}  {name}")
+        recent = self.logs[-6:] if self.logs else ["准备中..."]
+        log_block = "\n".join(recent)
+        return Panel(grid, title=f"Progress  ·  {self.context_usage}  ·  {datetime.now().strftime('%H:%M:%S')}", border_style="blue")
 
     def _refresh(self):
         if self._live and self._running:
-            try:
-                self._live.update(self._make_layout())
-            except Exception:
-                pass
+            self._live.update(self._make_table(), refresh=True)
 
     def enter(self):
         self._running = True
-        self._live = Live(
-            self._make_layout(),
-            console=self.console,
-            refresh_per_second=4,
-            transient=False,
-            screen=False,
-        )
-        self._live.start()
+        self._live = Live(self._make_table(), console=self.console, refresh_per_second=4)
+        self._live.start(refresh=True)
 
     def leave(self):
         self._running = False
         if self._live:
-            try:
-                self._live.stop()
-            except Exception:
-                pass
+            self._live.stop()
             self._live = None
+
