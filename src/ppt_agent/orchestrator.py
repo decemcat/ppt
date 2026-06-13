@@ -36,7 +36,7 @@ def orchestrator_task(tui):
         if not tpl:
             tui.ui_task_desc("请输入模板路径")
             val = tui.get_input(timeout=120)
-            if val is None:
+            if val is None or tui._stop_event.is_set():
                 return
             tpl = val
         session.template_path = tpl
@@ -47,12 +47,16 @@ def orchestrator_task(tui):
 
         tui.ui_task_running("搜索资料")
         from ppt_agent.research.manager import ResearchManager
+        if tui._stop_event.is_set():
+            return
         mgr = ResearchManager(c)
         results = mgr.search(topic)
         tui.ui_log(f"搜索: {len(results.get('web',[]))}网页 {len(results.get('papers',[]))}论文 {len(results.get('github',[]))}项目")
         tui.ui_task_done("搜索资料")
 
         tui.ui_task_running("研究总结")
+        if tui._stop_event.is_set():
+            return
         summary = mgr.summarize(results)
         session.add_message("system", f"Research:\n{summary}")
         tui.ui_task_done("研究总结")
@@ -61,7 +65,7 @@ def orchestrator_task(tui):
         tui.ui_task_running("用户讨论")
         while True:
             ui = tui.get_input()
-            if ui is None:
+            if ui is None or tui._stop_event.is_set():
                 return
             if ui.strip().lower() == "/done":
                 break
@@ -80,22 +84,32 @@ def orchestrator_task(tui):
             ]
             _est_ctx(tui, summary)
             tui.ui_task_desc("思考中...")
+            if tui._stop_event.is_set():
+                return
             resp = provider.chat(msgs, model=model)
+            if tui._stop_event.is_set():
+                return
             session.add_message("assistant", resp)
             tui.ui_log(f"{resp}")
             tui.ui_task_desc("等待输入")
         tui.ui_task_done("用户讨论")
 
         tui.ui_task_running("确认框架")
+        if tui._stop_event.is_set():
+            return
         tui.ui_task_desc("整理框架中...")
         _finalize(session, provider, model, tui)
         tui.ui_task_done("确认框架")
 
         if c.debate.enabled and session.framework:
             tui.ui_task_running("对抗辩论")
+            if tui._stop_event.is_set():
+                return
             from ppt_agent.adversarial.discussion import AdversarialDiscussion
             disc = AdversarialDiscussion(c, router)
             dr = disc.run(framework=session.framework, context=session.messages)
+            if tui._stop_event.is_set():
+                return
             session.framework = dr.final_framework
             tui.ui_log(f"辩论评分: {dr.logic_score:.0f}/100")
             for imp in dr.improvements:
@@ -121,6 +135,8 @@ def orchestrator_task(tui):
         tui.ui_task_done("风格加载")
 
         tui.ui_task_running("生成PPT")
+        if tui._stop_event.is_set():
+            return
         tui.ui_task_desc("生成中...")
         from ppt_agent.generator.image_gen import ImageGenerator
         ig = ImageGenerator(c, router)
@@ -130,6 +146,8 @@ def orchestrator_task(tui):
 
         if c.visual_check.enabled:
             tui.ui_task_running("视觉质检")
+            if tui._stop_event.is_set():
+                return
             from ppt_agent.quality.checker import VisualQualityChecker
             vc = VisualQualityChecker(c, router)
             cr = vc.check(output)

@@ -37,7 +37,7 @@ class PPTTUI(App):
         self.template_path = template_path
         self.style_name = style_name
         self._tasks: dict[str, tuple[bool, Static]] = {}
-        self._shutdown = threading.Event()
+        self._stop_event = threading.Event()
         self._tokens: int = 0
         self._ctx_pct: int = 0
         self._model: str = "—"
@@ -63,17 +63,18 @@ class PPTTUI(App):
         self._update_status_bar()
         self.query_one("#input", Input).focus()
         from ppt_agent.orchestrator import orchestrator_task
-        self.run_worker(orchestrator_task(self), exclusive=True, thread=True)
+        t = threading.Thread(target=orchestrator_task(self), daemon=True)
+        t.start()
 
     def on_unmount(self):
-        self._shutdown.set()
+        self._stop_event.set()
         try:
             self.input_queue.put_nowait(SENTINEL)
         except queue.Full:
             pass
 
     def action_quit(self):
-        self._shutdown.set()
+        self._stop_event.set()
         try:
             self.input_queue.put_nowait(SENTINEL)
         except queue.Full:
@@ -87,7 +88,7 @@ class PPTTUI(App):
         inp.focus()
 
     def get_input(self, timeout: float = 0.5) -> str | None:
-        while not self._shutdown.is_set():
+        while not self._stop_event.is_set():
             try:
                 return self.input_queue.get(timeout=timeout)
             except queue.Empty:
