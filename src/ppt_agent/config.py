@@ -30,9 +30,32 @@ class LLMConfig(BaseModel):
     )
 
 
+class KnowledgeConfig(BaseModel):
+    max_age_days: int = 180
+    auto_summarize: bool = True
+    chroma_path: str = ""
+    graph_path: str = ""
+
+    @property
+    def resolved_chroma_path(self) -> str:
+        return self.chroma_path or str(Path.home() / ".ppt-agent" / "knowledge" / "chroma")
+
+    @property
+    def resolved_graph_path(self) -> str:
+        return self.graph_path or str(Path.home() / ".ppt-agent" / "knowledge" / "graph" / "graph.json")
+
+
+class ProxyConfig(BaseModel):
+    enabled: bool = True
+    http: str = "http://127.0.0.1:7890"
+    https: str = "http://127.0.0.1:7890"
+
+
 class Config(BaseModel):
     template_path: str = ""
     llm: LLMConfig = Field(default_factory=LLMConfig)
+    knowledge: KnowledgeConfig = Field(default_factory=KnowledgeConfig)
+    proxy: ProxyConfig = Field(default_factory=ProxyConfig)
 
 
 def load_config(path: str | None = None) -> Config:
