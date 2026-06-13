@@ -53,8 +53,8 @@ When the user is satisfied with the direction, type /done.
 
 Research:\n{research_summary}"""
 
-USER_BG = "#1e2a3a"
-CONFIRM_BG = "#2d2200"
+USER_BG = "#1c2128"
+CONFIRM_BG = "#24292e"
 
 _config: Config | None = None
 
