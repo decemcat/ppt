@@ -11,8 +11,11 @@ class GitHubAnalyzer:
     def search(self, query: str, max_results: int = 5) -> list[RepoAnalysis]:
         try:
             return self._search_pygithub(query, max_results)
-        except ImportError:
-            return self._search_gh_cli(query, max_results)
+        except Exception:
+            try:
+                return self._search_gh_cli(query, max_results)
+            except Exception:
+                return []
 
     def _search_pygithub(self, query: str, max_results: int) -> list[RepoAnalysis]:
         from github import Github
@@ -35,11 +38,14 @@ class GitHubAnalyzer:
 
     def _search_gh_cli(self, query: str, max_results: int) -> list[RepoAnalysis]:
         import subprocess, json
-        result = subprocess.run(
-            ["gh", "search", "repos", query, "--json",
-             "name,owner,description,stargazersCount", f"--limit={max_results}"],
-            capture_output=True, text=True, timeout=30,
-        )
+        try:
+            result = subprocess.run(
+                ["gh", "search", "repos", query, "--json",
+                 "name,owner,description,stargazersCount", f"--limit={max_results}"],
+                capture_output=True, text=True, timeout=30,
+            )
+        except Exception:
+            return []
         if result.returncode != 0:
             return []
         try:

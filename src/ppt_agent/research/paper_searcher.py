@@ -11,11 +11,11 @@ class PaperSearcher:
         papers = []
         try:
             papers.extend(self._search_arxiv(query, max_results))
-        except ImportError:
+        except Exception:
             pass
         try:
             papers.extend(self._search_semantic_scholar(query, max_results))
-        except ImportError:
+        except Exception:
             pass
         return papers
 

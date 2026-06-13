@@ -20,8 +20,8 @@ class WebSearcher:
     def search(self, query: str, num_results: int = 5) -> list[SearchResult]:
         try:
             return self._search_agent_reach(query, num_results)
-        except (FileNotFoundError, ImportError, RuntimeError):
-            return self._search_direct(query, num_results)
+        except Exception:
+            return self._fallback_search(query, num_results)
 
     def _search_agent_reach(self, query: str, num_results: int) -> list[SearchResult]:
         import subprocess, json
@@ -46,7 +46,7 @@ class WebSearcher:
                 continue
         return results
 
-    def _search_direct(self, query: str, num_results: int) -> list[SearchResult]:
+    def _fallback_search(self, query: str, num_results: int) -> list[SearchResult]:
         return []
 
     def fetch_content(self, url: str) -> str:

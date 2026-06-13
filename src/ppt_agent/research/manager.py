@@ -23,23 +23,29 @@ class ResearchManager:
             "papers": self.papers.search(topic, max_results=5),
             "github": self.github.search(topic, max_results=5),
         }
-        for source_type, items in results.items():
-            docs = []
-            for item in items:
-                text = getattr(item, "content", "") or getattr(item, "snippet", "") or getattr(item, "description", "")
-                url = getattr(item, "url", "")
-                title = getattr(item, "title", "") or getattr(item, "repo", "")
-                docs.append({
-                    "id": f"{source_type}_{hash(url) % 100000:05d}",
-                    "text": text,
-                    "metadata": {"source": source_type, "url": url, "title": title},
-                })
-            if docs:
-                self.indexer.add_documents(docs, collection="knowledge")
-        for items in results.values():
-            search_results = [item for item in items if hasattr(item, "source")]
-            self.graph.auto_index(search_results)
-        self.graph.save(self.config.knowledge.resolved_graph_path)
+        try:
+            for source_type, items in results.items():
+                docs = []
+                for item in items:
+                    text = getattr(item, "content", "") or getattr(item, "snippet", "") or getattr(item, "description", "")
+                    url = getattr(item, "url", "")
+                    title = getattr(item, "title", "") or getattr(item, "repo", "")
+                    docs.append({
+                        "id": f"{source_type}_{hash(url) % 100000:05d}",
+                        "text": text,
+                        "metadata": {"source": source_type, "url": url, "title": title},
+                    })
+                if docs:
+                    self.indexer.add_documents(docs, collection="knowledge")
+        except Exception:
+            pass
+        try:
+            for items in results.values():
+                search_results = [item for item in items if hasattr(item, "source")]
+                self.graph.auto_index(search_results)
+            self.graph.save(self.config.knowledge.resolved_graph_path)
+        except Exception:
+            pass
         return results
 
     def summarize(self, results: dict) -> str:
