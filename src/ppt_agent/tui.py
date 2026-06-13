@@ -1,133 +1,115 @@
 from __future__ import annotations
-from textual.app import App, ComposeResult
-from textual.widgets import Header, Footer, Static, RichLog, Input, ListView, ListItem, Label
-from textual.containers import Horizontal, Vertical, Container
-from textual.reactive import reactive
-from textual import events
-from threading import Lock
+from rich.console import Console
+from rich.live import Live
+from rich.table import Table
+from rich.panel import Panel
+from rich.layout import Layout
+from rich import box
 from datetime import datetime
+import threading
 
 
-class TaskItem(ListItem):
-    def __init__(self, label: str):
-        super().__init__()
-        self.status = "⏳"
-        self.label = label
-
-    def compose(self) -> ComposeResult:
-        yield Label(f"{self.status} {self.label}")
+class TaskStatus:
+    pending = "⏳"
+    running = "🔄"
+    done = "✅"
+    failed = "❌"
 
 
-class TaskList(Vertical):
-    def compose(self) -> ComposeResult:
-        self._items: dict[str, TaskItem] = {}
+class TUI:
+    def __init__(self):
+        self.console = Console()
+        self.tasks: dict[str, str] = {}
+        self.logs: list[str] = []
+        self.context_usage: str = "—"
+        self._live: Live | None = None
+        self._lock = threading.Lock()
+        self._running = False
+
+    @property
+    def is_running(self) -> bool:
+        return self._running
 
     def set_tasks(self, tasks: list[str]):
-        self._items = {}
-        self.remove_children()
-        for t in tasks:
-            item = TaskItem(t)
-            self._items[t] = item
-            self.mount(item)
+        with self._lock:
+            self.tasks = {t: TaskStatus.pending for t in tasks}
+        self._refresh()
 
     def task_start(self, name: str):
-        if name in self._items:
-            self._items[name].status = "🔄"
-            self._items[name].query_one(Label).update(f"🔄 {name}")
+        with self._lock:
+            if name in self.tasks:
+                self.tasks[name] = TaskStatus.running
+        self._refresh()
 
     def task_done(self, name: str):
-        if name in self._items:
-            self._items[name].status = "✅"
-            self._items[name].query_one(Label).update(f"✅ {name}")
+        with self._lock:
+            if name in self.tasks:
+                self.tasks[name] = TaskStatus.done
+        self._refresh()
 
     def task_fail(self, name: str):
-        if name in self._items:
-            self._items[name].status = "❌"
-            self._items[name].query_one(Label).update(f"❌ {name}")
-
-
-class PPTTUI(App):
-    CSS = """
-    Horizontal { height: 1fr; }
-    #left { width: 2fr; border: solid green; }
-    #right { width: 1fr; border: solid blue; }
-    #right > Vertical { padding: 1; }
-    #logs { height: 1fr; }
-    #tasks { height: auto; }
-    #input_container { height: 3; border: solid $accent; }
-    #context { height: 1; background: $panel; }
-    Input { width: 100%; }
-    """
-
-    input_text: reactive[str] = reactive("")
-
-    def __init__(self):
-        super().__init__()
-        self._log_messages: list[str] = []
-        self._external_ready = Lock()
-        self._external_ready.acquire()
-        self._input_value: str = ""
-
-    def compose(self) -> ComposeResult:
-        yield Header()
-        yield Label(id="context", markup=False)
-        with Horizontal():
-            with Container(id="left"):
-                yield RichLog(id="logs", markup=True, highlight=True)
-            with Container(id="right"):
-                yield TaskList(id="tasks")
-        yield Input(id="input", placeholder="输入你的想法... (/done 结束)")
-        yield Footer()
-
-    def on_mount(self):
-        label = self.query_one("#context", Label)
-        label.update("Context: —")
-        self.query_one("#tasks", TaskList)
-        self._external_ready.release()
+        with self._lock:
+            if name in self.tasks:
+                self.tasks[name] = TaskStatus.failed
+        self._refresh()
 
     def log(self, message: str):
         ts = datetime.now().strftime("%H:%M:%S")
-        self._log_messages.append(f"[dim]{ts}[/dim] {message}")
-        try:
-            logs = self.query_one("#logs", RichLog)
-            logs.write(f"{message}")
-        except Exception:
-            pass
+        with self._lock:
+            self.logs.append(f"[dim]{ts}[/dim] {message}")
+        self._refresh()
 
     def set_context(self, info: str):
-        try:
-            self.query_one("#context", Label).update(f"Context: {info}")
-        except Exception:
-            pass
+        with self._lock:
+            self.context_usage = info
+        self._refresh()
 
-    def set_tasks(self, tasks: list[str]):
-        try:
-            self.query_one("#tasks", TaskList).set_tasks(tasks)
-        except Exception:
-            pass
+    def _make_layout(self) -> Layout:
+        layout = Layout()
+        layout.split_column(
+            Layout(name="header", size=1),
+            Layout(name="body"),
+        )
+        tasks_table = Table(box=box.SIMPLE, show_header=False, padding=(0, 1))
+        tasks_table.add_column("", width=2)
+        tasks_table.add_column("Task", style="bold")
+        for name, status in self.tasks.items():
+            tasks_table.add_row(status, name)
+        log_text = "\n".join(self.logs[-30:]) if self.logs else "等待开始..."
+        log_panel = Panel(log_text, title="Log", border_style="green")
+        task_panel = Panel(tasks_table, title="Progress", border_style="blue")
+        layout["header"].update(
+            Panel(f"Context: {self.context_usage}", box=box.SIMPLE, padding=(0, 1))
+        )
+        layout["body"].split_row(
+            Layout(log_panel, ratio=2),
+            Layout(task_panel, ratio=1),
+        )
+        return layout
 
-    def task_start(self, name: str):
-        try:
-            self.query_one("#tasks", TaskList).task_start(name)
-        except Exception:
-            pass
+    def _refresh(self):
+        if self._live and self._running:
+            try:
+                self._live.update(self._make_layout())
+            except Exception:
+                pass
 
-    def task_done(self, name: str):
-        try:
-            self.query_one("#tasks", TaskList).task_done(name)
-        except Exception:
-            pass
+    def enter(self):
+        self._running = True
+        self._live = Live(
+            self._make_layout(),
+            console=self.console,
+            refresh_per_second=4,
+            transient=False,
+            screen=False,
+        )
+        self._live.start()
 
-    def task_fail(self, name: str):
-        try:
-            self.query_one("#tasks", TaskList).task_fail(name)
-        except Exception:
-            pass
-
-    def on_input_submitted(self, event: Input.Submitted):
-        self._input_value = event.value
-        self.query_one("#input", Input).value = ""
-
-    def wait_ready(self, timeout: float = 5.0):
-        self._external_ready.acquire(timeout=timeout)
-        self._external_ready = Lock()
+    def leave(self):
+        self._running = False
+        if self._live:
+            try:
+                self._live.stop()
+            except Exception:
+                pass
+            self._live = None
