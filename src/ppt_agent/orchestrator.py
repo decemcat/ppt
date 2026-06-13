@@ -26,15 +26,15 @@ def orchestrator_task(tui):
         tpl = tui.template_path or c.template_path
         stl = tui.style_name
 
-        tui.ui_init_tasks(["搜索资料","研究总结","用户讨论","确认框架","对抗辩论","风格加载","生成PPT","视觉质检","保存会话"])
-        tui.ui_task_desc(f"项目: {topic}")
-        tui.ui_log(f"开始新项目: {topic}")
+        tui.ui_init_tasks(["Research","Summarize","Discuss","Framework","Debate","Style","Generate","Visual Check","Save"])
+        tui.ui_task_desc(f"Project: {topic}")
+        tui.ui_log(f"Start: {topic}")
 
         session = Session(topic=topic)
         session.add_message("system", f"Topic: {topic}")
 
         if not tpl:
-            tui.ui_task_desc("请输入模板路径")
+            tui.ui_task_desc("Enter template path")
             val = tui.get_input(timeout=120)
             if val is None or tui._stop_event.is_set():
                 return
@@ -45,24 +45,32 @@ def orchestrator_task(tui):
         provider, model = router.get_model("daily_chat")
         tui.ui_model(f"{c.llm.default_provider}:{model}")
 
-        tui.ui_task_running("搜索资料")
+        tui.ui_task_running("Research")
         from ppt_agent.research.manager import ResearchManager
         if tui._stop_event.is_set():
             return
         mgr = ResearchManager(c)
+        tui.ui_subagent_add("web", "searching")
+        tui.ui_subagent_add("papers", "searching")
+        tui.ui_subagent_add("github", "searching")
         results = mgr.search(topic)
-        tui.ui_log(f"搜索: {len(results.get('web',[]))}网页 {len(results.get('papers',[]))}论文 {len(results.get('github',[]))}项目")
-        tui.ui_task_done("搜索资料")
+        tui.ui_subagent_done("web")
+        tui.ui_subagent_done("papers")
+        tui.ui_subagent_done("github")
+        tui.ui_log(f"Search: {len(results.get('web',[]))} web {len(results.get('papers',[]))} papers {len(results.get('github',[]))} repos")
+        tui.ui_task_done("Research")
 
-        tui.ui_task_running("研究总结")
+        tui.ui_task_running("Summarize")
         if tui._stop_event.is_set():
             return
+        tui.ui_subagent_add("summarize", "summarizing research")
         summary = mgr.summarize(results)
+        tui.ui_subagent_done("summarize")
         session.add_message("system", f"Research:\n{summary}")
-        tui.ui_task_done("研究总结")
+        tui.ui_task_done("Summarize")
         _est_ctx(tui, summary)
 
-        tui.ui_task_running("用户讨论")
+        tui.ui_task_running("Discuss")
         while True:
             ui = tui.get_input()
             if ui is None or tui._stop_event.is_set():
@@ -74,7 +82,7 @@ def orchestrator_task(tui):
                     for i, s in enumerate(session.framework.framework.slides):
                         tui.ui_log(f"  {i+1}. [{s.slide_type}] {s.title}")
                 else:
-                    tui.ui_log("  框架尚未确定")
+                    tui.ui_log("  framework not ready")
                 continue
             session.add_message("user", ui)
             tui.ui_log(f"[bold cyan]You:[/bold cyan] {ui[:200]}")
@@ -83,7 +91,7 @@ def orchestrator_task(tui):
                 *[{"role":m["role"],"content":m["content"]} for m in session.messages[-10:]],
             ]
             _est_ctx(tui, summary)
-            tui.ui_task_desc("思考中...")
+            tui.ui_task_desc("Thinking...")
             if tui._stop_event.is_set():
                 return
             resp = provider.chat(msgs, model=model)
@@ -91,34 +99,38 @@ def orchestrator_task(tui):
                 return
             session.add_message("assistant", resp)
             tui.ui_log(f"{resp}")
-            tui.ui_task_desc("等待输入")
-        tui.ui_task_done("用户讨论")
+            tui.ui_task_desc("Awaiting input")
+        tui.ui_task_done("Discuss")
 
-        tui.ui_task_running("确认框架")
+        tui.ui_task_running("Framework")
         if tui._stop_event.is_set():
             return
-        tui.ui_task_desc("整理框架中...")
+        tui.ui_task_desc("Building framework...")
         _finalize(session, provider, model, tui)
-        tui.ui_task_done("确认框架")
+        tui.ui_task_done("Framework")
 
         if c.debate.enabled and session.framework:
-            tui.ui_task_running("对抗辩论")
+            tui.ui_task_running("Debate")
             if tui._stop_event.is_set():
                 return
             from ppt_agent.adversarial.discussion import AdversarialDiscussion
             disc = AdversarialDiscussion(c, router)
+            tui.ui_subagent_add("proponent", "arguing")
+            tui.ui_subagent_add("critic", "critiquing")
             dr = disc.run(framework=session.framework, context=session.messages)
+            tui.ui_subagent_done("proponent")
+            tui.ui_subagent_done("critic")
             if tui._stop_event.is_set():
                 return
             session.framework = dr.final_framework
-            tui.ui_log(f"辩论评分: {dr.logic_score:.0f}/100")
+            tui.ui_log(f"Debate score: {dr.logic_score:.0f}/100")
             for imp in dr.improvements:
-                tui.ui_log(f"  ✓ {imp}")
-            tui.ui_task_done("对抗辩论")
+                tui.ui_log(f"  + {imp}")
+            tui.ui_task_done("Debate")
         else:
-            tui.ui_task_done("对抗辩论")
+            tui.ui_task_done("Debate")
 
-        tui.ui_task_running("风格加载")
+        tui.ui_task_running("Style")
         sp = None
         if stl:
             from ppt_agent.style.profile import StyleProfile as _SP
@@ -132,36 +144,38 @@ def orchestrator_task(tui):
                 sp = _SP.load("default")
             except FileNotFoundError:
                 pass
-        tui.ui_task_done("风格加载")
+        tui.ui_task_done("Style")
 
-        tui.ui_task_running("生成PPT")
+        tui.ui_task_running("Generate")
         if tui._stop_event.is_set():
             return
-        tui.ui_task_desc("生成中...")
+        tui.ui_task_desc("Generating...")
         from ppt_agent.generator.image_gen import ImageGenerator
         ig = ImageGenerator(c, router)
         output = generate_pptx(session.framework, tpl, style_profile=sp, image_gen=ig)
         tui.ui_log(f"PPT: {output}")
-        tui.ui_task_done("生成PPT")
+        tui.ui_task_done("Generate")
 
         if c.visual_check.enabled:
-            tui.ui_task_running("视觉质检")
+            tui.ui_task_running("Visual Check")
             if tui._stop_event.is_set():
                 return
             from ppt_agent.quality.checker import VisualQualityChecker
             vc = VisualQualityChecker(c, router)
+            tui.ui_subagent_add("vision", "evaluating slides")
             cr = vc.check(output)
+            tui.ui_subagent_done("vision")
             tui.ui_log(cr.summary)
-            tui.ui_task_done("视觉质检")
+            tui.ui_task_done("Visual Check")
         else:
-            tui.ui_task_done("视觉质检")
+            tui.ui_task_done("Visual Check")
 
-        tui.ui_task_running("保存会话")
+        tui.ui_task_running("Save")
         session.add_message("system", f"Generated: {output}")
         session.save()
-        tui.ui_task_done("保存会话")
-        tui.ui_task_desc("完成")
-        tui.ui_log(f"[green]✅ PPT已生成: {output}[/green]")
+        tui.ui_task_done("Save")
+        tui.ui_task_desc("Done")
+        tui.ui_log(f"[green]PPT generated: {output}[/green]")
     return run
 
 
@@ -173,9 +187,9 @@ def _est_ctx(tui, text: str):
 
 def _finalize(session, provider, model, tui):
     msgs = [
-        {"role":"system","content":"输出最终的PPT框架。"},
+        {"role":"system","content":"Output the final PPT framework."},
         *[{"role":m["role"],"content":m["content"]} for m in session.messages],
-        {"role":"user","content":"输出PPT框架，每页有title/slide_type/bullets/diagram。仅极少情况填image_prompt，最多1-2张。"},
+        {"role":"user","content":"Output PPT framework with title/slide_type/bullets/diagram per slide. Only use image_prompt sparingly, 1-2 max."},
     ]
     try:
         fw = provider.chat_structured(msgs, PPTFramework, model=model)
@@ -183,14 +197,14 @@ def _finalize(session, provider, model, tui):
         for i, s in enumerate(fw.framework.slides):
             tui.ui_log(f"  {i+1}. [{s.slide_type}] {s.title}")
     except Exception:
-        tui.ui_log("框架解析出错，使用默认结构")
+        tui.ui_log("Framework parse error, using defaults")
         session.framework = PPTFramework(
             title=session.topic,
             framework=SlideFramework(slides=[
                 SlideContent(title=session.topic, slide_type="title"),
-                SlideContent(title="背景", slide_type="text", bullets=["待补充"]),
-                SlideContent(title="方案", slide_type="arch_diagram"),
-                SlideContent(title="总结", slide_type="text", bullets=["待补充"]),
+                SlideContent(title="Background", slide_type="text", bullets=["TBD"]),
+                SlideContent(title="Solution", slide_type="arch_diagram"),
+                SlideContent(title="Summary", slide_type="text", bullets=["TBD"]),
             ]),
         )
 

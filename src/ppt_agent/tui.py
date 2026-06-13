@@ -25,6 +25,8 @@ class PPTTUI(App):
     #stat_block { padding: 1 0; }
     #todo_title { padding: 1 0 0 0; color: $text-muted; text-style: bold; }
     #todo_list { padding: 0; }
+    #sub_title { padding: 1 0 0 0; color: $text-muted; text-style: bold; }
+    #sub_list { padding: 0; }
     #status_bar { height: 1; padding: 0 1; background: #010409; color: $text-muted; }
     """
 
@@ -37,6 +39,7 @@ class PPTTUI(App):
         self.template_path = template_path
         self.style_name = style_name
         self._tasks: dict[str, tuple[bool, Static]] = {}
+        self._subagents: dict[str, Static] = {}
         self._stop_event = threading.Event()
         self._tokens: int = 0
         self._ctx_pct: int = 0
@@ -46,10 +49,10 @@ class PPTTUI(App):
         with Horizontal(id="main"):
             with Vertical(id="left"):
                 yield RichLog(id="logs", markup=True, highlight=True, wrap=True)
-                yield Container(Input(id="input", placeholder="输入... (/done 结束)"), id="input_area")
+                yield Container(Input(id="input", placeholder="Type... (/done to end)"), id="input_area")
             with Vertical(id="right"):
                 yield Static("Task", id="right_title")
-                yield Static("等待开始...", id="task_desc")
+                yield Static("Waiting...", id="task_desc")
                 yield Container(
                     Static("Tokens: 0", id="stat_tokens"),
                     Static("Context: —%", id="stat_context"),
@@ -57,6 +60,8 @@ class PPTTUI(App):
                 )
                 yield Static("Todo", id="todo_title")
                 yield Vertical(id="todo_list")
+                yield Static("Subagents", id="sub_title")
+                yield Vertical(id="sub_list")
         yield Static(id="status_bar")
 
     def on_mount(self):
@@ -97,7 +102,7 @@ class PPTTUI(App):
 
     def _update_status_bar(self):
         self.query_one("#status_bar", Static).update(
-            f" 模型: {self._model}  |  Tokens: {self._tokens}  |  上下文: {self._ctx_pct}%  |  /done 结束讨论  |  /framework 查看框架  |  Ctrl+Q 退出"
+            f" Model: {self._model}  |  Tokens: {self._tokens}  |  Context: {self._ctx_pct}%  |  /done end  |  /framework view  |  Ctrl+Q quit"
         )
 
     def ui_log(self, message: str):
@@ -159,3 +164,27 @@ class PPTTUI(App):
     def _do_task_running(self, name: str):
         if name in self._tasks:
             self._tasks[name][1].update(f"  [·]  {name}")
+
+    def ui_subagent_add(self, name: str, task: str):
+        self.call_from_thread(self._do_subagent_add, name, task)
+
+    def _do_subagent_add(self, name: str, task: str):
+        label = Static(f"  [·]  {name}: {task}")
+        self.query_one("#sub_list", Vertical).mount(label)
+        self._subagents[name] = label
+
+    def ui_subagent_done(self, name: str):
+        self.call_from_thread(self._do_subagent_done, name)
+
+    def _do_subagent_done(self, name: str):
+        if name in self._subagents:
+            old_text = self._subagents[name].renderable  # type: ignore
+            self._subagents[name].update(f"  [x]  {old_text.replace('  [·]  ', '')}")
+
+    def ui_subagent_remove(self, name: str):
+        self.call_from_thread(self._do_subagent_remove, name)
+
+    def _do_subagent_remove(self, name: str):
+        if name in self._subagents:
+            self._subagents[name].remove()
+            del self._subagents[name]
