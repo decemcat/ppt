@@ -66,15 +66,17 @@ def orchestrator_task(tui):
 
         tui.ui_log("[bold]▸ Web Search[/bold]")
         tui.ui_subagent_add("web", "searching")
-        tui.ui_busy("DuckDuckGo web search")
+        tui.ui_busy("DuckDuckGo + Google + Bing")
         tui.ui_log(f"  query: [dim]{topic}[/dim]")
-        tui.ui_log(f"  engine: DuckDuckGo")
+        tui.ui_log(f"  engines: DuckDuckGo, Google, Bing")
         web_searcher = WebSearcher(proxy=c.proxy)
+        t0 = __import__("time").time()
         web_results = web_searcher.search(topic, num_results=5)
+        elapsed = __import__("time").time() - t0
         tui.ui_busy("")
         tui.ui_subagent_done("web")
         if web_results:
-            tui.ui_log(f"  [green]✓[/green] [bold]{len(web_results)}[/bold] results")
+            tui.ui_log(f"  [green]✓[/green] [bold]{len(web_results)}[/bold] results ({elapsed:.1f}s)")
             for i, r in enumerate(web_results):
                 tui.ui_log(f"    {i+1}. [bold]{r.title}[/bold]")
                 tui.ui_log(f"       [dim]{r.url}[/dim]")
