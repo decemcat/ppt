@@ -19,6 +19,14 @@ def set_config(c: Config):
     _config = c
 
 
+def _confirm(tui, prompt_text: str) -> bool:
+    tui.ui_log(f"[yellow]?[/yellow] {prompt_text} [dim](Enter=yes, n=no)[/dim]")
+    val = tui.get_input(timeout=120)
+    if val is None or tui._stop_event.is_set():
+        return False
+    return val.strip().lower() not in ("n", "no")
+
+
 def orchestrator_task(tui):
     def run():
         c = _config or Config()
@@ -49,27 +57,105 @@ def orchestrator_task(tui):
 
         tui.ui_task_running("Research")
         from ppt_agent.research.manager import ResearchManager
+        from ppt_agent.research.web_searcher import WebSearcher
+        from ppt_agent.research.paper_searcher import PaperSearcher
+        from ppt_agent.research.github_analyzer import GitHubAnalyzer
         if tui._stop_event.is_set():
             return
         mgr = ResearchManager(c)
-        tui.ui_log("[bold]▸ Search[/bold]")
+
+        tui.ui_log("[bold]▸ Web Search[/bold]")
         tui.ui_subagent_add("web", "searching")
-        tui.ui_subagent_add("papers", "searching")
-        tui.ui_subagent_add("github", "searching")
-        tui.ui_busy("Searching web, papers, github repositories")
-        results = mgr.search(topic)
+        tui.ui_busy("openccode run websearch")
+        tui.ui_log(f"  query: [dim]{topic}[/dim]")
+        tui.ui_log(f"  command: [dim]opencode run websearch {topic}[/dim]")
+        web_searcher = WebSearcher(proxy=c.proxy)
+        web_results = web_searcher.search(topic, num_results=5)
         tui.ui_busy("")
         tui.ui_subagent_done("web")
+        if web_results:
+            tui.ui_log(f"  [green]✓[/green] [bold]{len(web_results)}[/bold] results")
+            for i, r in enumerate(web_results):
+                tui.ui_log(f"    {i+1}. [bold]{r.title}[/bold]")
+                tui.ui_log(f"       [dim]{r.url}[/dim]")
+        else:
+            tui.ui_log(f"  [dim]no results[/dim]")
+
+        tui.ui_log("[bold]▸ Paper Search[/bold]")
+        tui.ui_subagent_add("papers", "searching")
+        tui.ui_busy("Searching arXiv & Semantic Scholar")
+        tui.ui_log(f"  sources: arXiv, Semantic Scholar")
+        paper_searcher = PaperSearcher(proxy=c.proxy)
+        paper_results = paper_searcher.search(topic, max_results=5)
+        tui.ui_busy("")
         tui.ui_subagent_done("papers")
+        if paper_results:
+            tui.ui_log(f"  [green]✓[/green] [bold]{len(paper_results)}[/bold] papers")
+            for i, p in enumerate(paper_results):
+                arxiv_id = getattr(p, "arxiv_id", "")[:10] or "—"
+                citations = getattr(p, "citations", 0) or 0
+                authors = ", ".join(getattr(p, "authors", [])[:3] or [])
+                tui.ui_log(f"    {i+1}. [bold]{p.title}[/bold]")
+                tui.ui_log(f"       arXiv: {arxiv_id}  citations: {citations}")
+                if authors:
+                    tui.ui_log(f"       by {authors}")
+        else:
+            tui.ui_log(f"  [dim]no results[/dim]")
+
+        tui.ui_log("[bold]▸ GitHub Search[/bold]")
+        tui.ui_subagent_add("github", "searching")
+        tui.ui_busy("Searching GitHub repositories")
+        tui.ui_log(f"  query: [dim]{topic} sort:stars[/dim]")
+        gh_analyzer = GitHubAnalyzer()
+        gh_results = gh_analyzer.search(topic, max_results=5)
+        tui.ui_busy("")
         tui.ui_subagent_done("github")
-        tui.ui_log(f"  [green]✓[/green] Found [bold]{len(results.get('web',[]))}[/bold] web, [bold]{len(results.get('papers',[]))}[/bold] papers, [bold]{len(results.get('github',[]))}[/bold] repos")
-        tui.ui_task_done("Research")
+        if gh_results:
+            tui.ui_log(f"  [green]✓[/green] [bold]{len(gh_results)}[/bold] repos")
+            for i, r in enumerate(gh_results):
+                tui.ui_log(f"    {i+1}. [bold]{r.repo}[/bold] ★{r.stars}")
+                if r.description:
+                    tui.ui_log(f"       [dim]{r.description[:120]}[/dim]")
+        else:
+            tui.ui_log(f"  [dim]no results[/dim]")
+
+        results = {"web": web_results, "papers": paper_results, "github": gh_results}
+
+        tui.ui_busy("Indexing to ChromaDB & knowledge graph")
+        try:
+            for source_type, items in results.items():
+                docs = []
+                for item in items:
+                    text = getattr(item, "content", "") or getattr(item, "snippet", "") or getattr(item, "description", "")
+                    url = getattr(item, "url", "")
+                    title = getattr(item, "title", "") or getattr(item, "repo", "")
+                    docs.append({
+                        "id": f"{source_type}_{hash(url) % 100000:05d}",
+                        "text": text,
+                        "metadata": {"source": source_type, "url": url, "title": title},
+                    })
+                if docs:
+                    mgr.indexer.add_documents(docs, collection="knowledge")
+            tui.ui_log(f"  [green]✓[/green] Indexed to ChromaDB")
+        except Exception:
+            pass
+        try:
+            for items in results.values():
+                search_results = [item for item in items if hasattr(item, "source")]
+                mgr.graph.auto_index(search_results)
+            mgr.graph.save(c.knowledge.resolved_graph_path)
+            tui.ui_log(f"  [green]✓[/green] Knowledge graph updated")
+        except Exception:
+            pass
+        tui.ui_busy("")
 
         tui.ui_task_running("Summarize")
         if tui._stop_event.is_set():
             return
         tui.ui_subagent_add("summarize", "summarizing research")
-        tui.ui_busy("Summarizing research findings")
+        total_items = sum(len(v) for v in results.values())
+        tui.ui_log(f"  sources: [bold]{total_items}[/bold] total ({len(web_results)} web + {len(paper_results)} papers + {len(gh_results)} repos)")
+        tui.ui_busy(f"Summarizing {total_items} sources")
         summary = mgr.summarize(results)
         tui.ui_busy("")
         tui.ui_subagent_done("summarize")
@@ -127,28 +213,32 @@ def orchestrator_task(tui):
         tui.ui_task_done("Framework")
 
         if c.debate.enabled and session.framework:
-            tui.ui_log("[bold]▸ Debate[/bold]")
-            tui.ui_task_running("Debate")
-            if tui._stop_event.is_set():
-                return
-            from ppt_agent.adversarial.discussion import AdversarialDiscussion
-            disc = AdversarialDiscussion(c, router)
-            tui.ui_subagent_add("proponent", "arguing")
-            tui.ui_subagent_add("critic", "critiquing")
-            tui.ui_subagent_add("judge", "evaluating")
-            tui.ui_busy("Running adversarial debate")
-            dr = disc.run(framework=session.framework, context=session.messages)
-            tui.ui_busy("")
-            tui.ui_subagent_done("proponent")
-            tui.ui_subagent_done("critic")
-            tui.ui_subagent_done("judge")
-            if tui._stop_event.is_set():
-                return
-            session.framework = dr.final_framework
-            tui.ui_log(f"  [green]✓[/green] Logic score: [bold]{dr.logic_score:.0f}/100[/bold]")
-            for imp in dr.improvements:
-                tui.ui_log(f"  [green]+[/green] {imp}")
-            tui.ui_task_done("Debate")
+            if not _confirm(tui, f"Start adversarial debate? ({len(session.framework.framework.slides)} slides)"):
+                tui.ui_log(f"  [dim]debate skipped[/dim]")
+                tui.ui_task_done("Debate")
+            else:
+                tui.ui_log("[bold]▸ Debate[/bold]")
+                tui.ui_task_running("Debate")
+                if tui._stop_event.is_set():
+                    return
+                from ppt_agent.adversarial.discussion import AdversarialDiscussion
+                disc = AdversarialDiscussion(c, router)
+                tui.ui_subagent_add("proponent", "arguing")
+                tui.ui_subagent_add("critic", "critiquing")
+                tui.ui_subagent_add("judge", "evaluating")
+                tui.ui_busy("Running adversarial debate")
+                dr = disc.run(framework=session.framework, context=session.messages)
+                tui.ui_busy("")
+                tui.ui_subagent_done("proponent")
+                tui.ui_subagent_done("critic")
+                tui.ui_subagent_done("judge")
+                if tui._stop_event.is_set():
+                    return
+                session.framework = dr.final_framework
+                tui.ui_log(f"  [green]✓[/green] Logic score: [bold]{dr.logic_score:.0f}/100[/bold]")
+                for imp in dr.improvements:
+                    tui.ui_log(f"  [green]+[/green] {imp}")
+                tui.ui_task_done("Debate")
         else:
             tui.ui_task_done("Debate")
 
@@ -170,6 +260,11 @@ def orchestrator_task(tui):
             tui.ui_log(f"  [green]✓[/green] Style loaded: [bold]{sp.name}[/bold]")
         tui.ui_task_done("Style")
 
+        if not _confirm(tui, f"Generate PPTX?"):
+            tui.ui_log(f"  [dim]generation aborted[/dim]")
+            tui.ui_task_desc("Aborted")
+            return
+
         tui.ui_log("[dim]─" * 40 + "[/dim]")
         tui.ui_log("[bold]▸ Generate[/bold]")
         tui.ui_task_running("Generate")
@@ -179,7 +274,10 @@ def orchestrator_task(tui):
         from ppt_agent.generator.image_gen import ImageGenerator
         ig = ImageGenerator(c, router)
         tui.ui_busy("Generating PPTX file")
-        output = generate_pptx(session.framework, tpl, style_profile=sp, image_gen=ig)
+        def on_slide_progress(idx, total, slide):
+            tui.ui_log(f"  [{idx}/{total}] [{slide.slide_type}] {slide.title}")
+            tui.ui_busy(f"Slide {idx}/{total}")
+        output = generate_pptx(session.framework, tpl, style_profile=sp, image_gen=ig, on_progress=on_slide_progress)
         tui.ui_busy("")
         tui.ui_log(f"  [green]✓[/green] [bold]{output}[/bold]")
         tui.ui_task_done("Generate")

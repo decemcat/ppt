@@ -32,6 +32,7 @@ def generate_pptx(
     output_path: str = "output.pptx",
     style_profile: StyleProfile | None = None,
     image_gen: ImageGenerator | None = None,
+    on_progress: object = None,
 ) -> str:
     """Generate a .pptx file from a framework.
 
@@ -41,7 +42,8 @@ def generate_pptx(
     prs = Presentation(template_path)
     blank_layout = prs.slide_layouts[0]
     ai_counter = {"ai_count": 0}
-    for slide_content in ppt_framework.framework.slides:
+    total = len(ppt_framework.framework.slides)
+    for idx, slide_content in enumerate(ppt_framework.framework.slides):
         slide = prs.slides.add_slide(blank_layout)
         if slide_content.slide_type == "title":
             _render_title_slide(slide, slide_content, template_info, style_profile)
@@ -51,6 +53,8 @@ def generate_pptx(
             _render_arch_slide(slide, slide_content, template_info, style_profile, image_gen, ai_counter)
         else:
             _render_text_slide(slide, slide_content, template_info, style_profile, image_gen, ai_counter)
+        if on_progress is not None and hasattr(on_progress, "__call__"):
+            on_progress(idx + 1, total, slide_content)
     prs.save(output_path)
     return output_path
 
