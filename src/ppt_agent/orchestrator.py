@@ -53,9 +53,6 @@ When the user is satisfied with the direction, type /done.
 
 Research:\n{research_summary}"""
 
-USER_BG = "#1c2128"
-CONFIRM_BG = "#24292e"
-
 _config: Config | None = None
 
 
@@ -65,7 +62,7 @@ def set_config(c: Config):
 
 
 def _confirm(tui, prompt_text: str) -> bool:
-    tui.ui_log(f"[on {CONFIRM_BG}][bold yellow]?[/bold yellow] {prompt_text} [dim](Enter=yes, n=no)[/dim][/on {CONFIRM_BG}]")
+    tui.ui_confirm(f"? {prompt_text} (Enter=yes, n=no)")
     val = tui.get_input(timeout=120)
     if val is None or tui._stop_event.is_set():
         return False
@@ -87,7 +84,7 @@ def _chat_loop(tui, session, provider, model, system_prompt, end_cmd="/done", la
                 tui.ui_log("  [dim]framework not ready[/dim]")
             continue
         session.add_message("user", ui)
-        tui.ui_log(f"[on {USER_BG}][bold cyan]You:[/bold cyan] {ui[:200]}[/on {USER_BG}]")
+        tui.ui_user(f"You: {ui[:200]}")
         msgs = [
             {"role": "system", "content": system_prompt},
             *[{"role": m["role"], "content": m["content"]} for m in session.messages[-12:]],
@@ -101,7 +98,7 @@ def _chat_loop(tui, session, provider, model, system_prompt, end_cmd="/done", la
         if tui._stop_event.is_set():
             return None
         session.add_message("assistant", resp)
-        tui.ui_log(f"{resp}")
+        tui.ui_agent(resp)
         tui.ui_task_desc("Awaiting input")
     return session
 
@@ -186,7 +183,7 @@ def orchestrator_task(tui):
             if not ui.strip():
                 continue
             session.add_message("user", ui)
-            tui.ui_log(f"[on {USER_BG}][bold cyan]You:[/bold cyan] {ui[:200]}[/on {USER_BG}]")
+            tui.ui_user(f"You: {ui[:200]}")
             req_msgs.append({"role": "user", "content": ui})
             hist = "\n".join(m["content"][:300] for m in req_msgs[-6:])
             tui.ui_task_desc("Clarifying domain")
@@ -200,7 +197,7 @@ def orchestrator_task(tui):
                 return
             req_msgs.append({"role": "assistant", "content": resp})
             session.add_message("assistant", resp)
-            tui.ui_log(f"{resp}")
+            tui.ui_agent(resp)
             tui.ui_task_desc("Continue or /done")
             if "/ready" in resp.lower():
                 tui.ui_log("[dim](Agent suggests moving on. Type /done or continue.)[/dim]")
@@ -223,7 +220,7 @@ def orchestrator_task(tui):
         tui.ui_busy("")
         if tui._stop_event.is_set():
             return
-        tui.ui_log(f"{plan_resp}")
+        tui.ui_agent(plan_resp)
         tui.ui_log("")
 
         if not _confirm(tui, "Execute this research plan?"):
@@ -240,7 +237,7 @@ def orchestrator_task(tui):
                 tui.ui_busy("Refining research plan")
                 plan_resp = provider.chat(plan_msg, model=model)
                 tui.ui_busy("")
-                tui.ui_log(f"{plan_resp}")
+                tui.ui_agent(plan_resp)
         tui.ui_task_done("Research Plan")
         tui.ui_log("  [green]✓[/green] Research plan confirmed")
 

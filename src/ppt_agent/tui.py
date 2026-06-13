@@ -1,7 +1,10 @@
 from __future__ import annotations
 from textual.app import App, ComposeResult
-from textual.widgets import RichLog, Input, Static
+from textual.widgets import RichLog, Static, TextArea
 from textual.containers import Horizontal, Vertical, Container
+from textual.binding import Binding
+from rich.markdown import Markdown as RichMarkdown
+from rich.text import Text
 import queue
 import threading
 
@@ -19,8 +22,8 @@ class PPTTUI(App):
     #logs { height: 1fr; background: #0d1117; padding: 0 1; }
     #busy { background: #0d1117; padding: 0 1 0 1; color: $warning; height: 1; }
     #input_area { background: #0d1117; padding: 1; height: auto; }
-    #input { width: 100%; height: 3; padding: 1; background: #161b22; border: none; }
-    Input:focus { border: none; }
+    #input { width: 100%; min-height: 3; max-height: 10; padding: 1; background: #161b22; border: none; }
+    TextArea:focus { border: none; }
     #right_title { padding: 1 0 0 0; color: $text-muted; text-style: bold; }
     #task_desc { padding: 0 0 1 0; color: $text; }
     #stat_block { padding: 1 0; }
@@ -31,7 +34,9 @@ class PPTTUI(App):
     #status_bar { height: 1; padding: 0 1; background: #010409; color: $text-muted; }
     """
 
-    BINDINGS = [("ctrl+q", "quit", "退出")]
+    BINDINGS = [
+        Binding("ctrl+q", "quit", "Quit"),
+    ]
 
     def __init__(self, input_queue: queue.Queue):
         super().__init__()
@@ -49,7 +54,10 @@ class PPTTUI(App):
             with Vertical(id="left"):
                 yield RichLog(id="logs", markup=True, highlight=True, wrap=True)
                 yield Static("", id="busy")
-                yield Container(Input(id="input", placeholder="Type... (/done to end)"), id="input_area")
+                yield Container(
+                    TextArea("", id="input", language=None, show_line_numbers=False, tab_behavior="focus"),
+                    id="input_area",
+                )
             with Vertical(id="right"):
                 yield Static("Task", id="right_title")
                 yield Static("Waiting...", id="task_desc")
@@ -66,7 +74,7 @@ class PPTTUI(App):
 
     def on_mount(self):
         self._update_status_bar()
-        self.query_one("#input", Input).focus()
+        self.query_one("#input", TextArea).focus()
         self._dot_frame = 0
         self.set_interval(0.08, self._animate_busy)
         from ppt_agent.orchestrator import orchestrator_task
@@ -88,11 +96,16 @@ class PPTTUI(App):
             pass
         self.exit()
 
-    def on_input_submitted(self, event: Input.Submitted):
-        self.input_queue.put(event.value)
-        inp = self.query_one("#input", Input)
-        inp.value = ""
-        inp.focus()
+    def on_text_area_changed(self, event: TextArea.Changed):
+        if event.text_area.id != "input":
+            return
+        text = event.text_area.text
+        if "\n" in text:
+            lines = text.split("\n")
+            for line in lines[:-1]:
+                if line.strip():
+                    self.input_queue.put(line.strip())
+            event.text_area.text = ""
 
     def get_input(self, timeout: float = 0.5) -> str | None:
         while not self._stop_event.is_set():
@@ -104,7 +117,7 @@ class PPTTUI(App):
 
     def _update_status_bar(self):
         self.query_one("#status_bar", Static).update(
-            f" Model: {self._model}  |  Tokens: {self._tokens}  |  Context: {self._ctx_pct}%  |  /done end  |  /framework view  |  Ctrl+Q quit"
+            f" Model: {self._model}  |  Tokens: {self._tokens}  |  Context: {self._ctx_pct}%  |  Enter: send  |  Shift+Enter: newline  |  /done end  |  Ctrl+Q quit"
         )
 
     def _animate_busy(self):
@@ -124,6 +137,39 @@ class PPTTUI(App):
 
     def _do_log(self, message: str):
         self.query_one("#logs", RichLog).write(message)
+
+    def ui_agent(self, message: str):
+        self.call_from_thread(self._do_agent, message)
+
+    def _do_agent(self, message: str):
+        log = self.query_one("#logs", RichLog)
+        try:
+            md = RichMarkdown(message)
+            log.write("")
+            log.write(md)
+            log.write("")
+        except Exception:
+            log.write(message)
+
+    def ui_user(self, message: str):
+        self.call_from_thread(self._do_user, message)
+
+    def _do_user(self, message: str):
+        log = self.query_one("#logs", RichLog)
+        t = Text()
+        t.append("\n▌ ", style="bold cyan")
+        t.append(message, style="cyan")
+        log.write(t)
+
+    def ui_confirm(self, message: str):
+        self.call_from_thread(self._do_confirm, message)
+
+    def _do_confirm(self, message: str):
+        log = self.query_one("#logs", RichLog)
+        t = Text()
+        t.append("\n▌ ", style="bold yellow")
+        t.append(message, style="yellow")
+        log.write(t)
 
     def ui_model(self, name: str):
         self._model = name
@@ -191,7 +237,7 @@ class PPTTUI(App):
 
     def _do_subagent_done(self, name: str):
         if name in self._subagents:
-            old_text = self._subagents[name].renderable  # type: ignore
+            old_text = self._subagents[name].renderable
             self._subagents[name].update(f"  [x]  {old_text.replace('  [·]  ', '')}")
 
     def ui_subagent_remove(self, name: str):
