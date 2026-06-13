@@ -108,17 +108,21 @@ new "Topic"
 ## Development
 
 ```bash
-# 安装 (含 venv + pip install + PATH 链接)
-./install.sh
+# 首次设置开发环境
+python3 -m venv .venv && .venv/bin/pip install -e .
 
 # 运行测试
 .venv/bin/python -m pytest tests/ -v
-
-# 运行单个测试
-.venv/bin/python -m pytest tests/test_style.py::TestStyleProfile::test_default_profile -v
 ```
 
 Python 3.11+ required. Uses PEP 668 compliant venv.
+
+所有运行时文件位于 `~/.ppt-agent/`:
+- `.venv/` — Python 虚拟环境
+- `config.yaml` — 配置文件
+- `sessions/` — 会话存档
+- `knowledge/` — 知识库
+- `styles/` — 风格配置
 
 ## License
 

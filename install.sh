@@ -4,10 +4,15 @@ set -e
 BOLD="\033[1m"
 GREEN="\033[32m"
 YELLOW="\033[33m"
+CYAN="\033[36m"
 RESET="\033[0m"
 
-echo -e "${BOLD}PPT Agent — 安装${RESET}"
+echo -e "${BOLD}ppt — 安装${RESET}"
 echo ""
+
+INSTALL_DIR="$HOME/.ppt-agent"
+VENV_DIR="$INSTALL_DIR/.venv"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Python 检查
 PYTHON=""
@@ -15,22 +20,13 @@ for cmd in python3 python; do
     if command -v "$cmd" &>/dev/null; then
         v=$("$cmd" --version 2>&1 | grep -oE '[0-9]+\.[0-9]+' | head -1)
         major=$(echo "$v" | cut -d. -f1)
-        if [[ "$major" -ge 3 && "$v" != "3.0" && "$v" != "3.1" && "$v" != "3.10" ]]; then
+        minor=$(echo "$v" | cut -d. -f2)
+        if [[ "$major" -eq 3 && "$minor" -ge 11 ]]; then
             PYTHON="$cmd"
             break
         fi
     fi
 done
-
-# 特殊处理 macOS Homebrew python3.11 (命名可能为 python3.11)
-if [[ -z "$PYTHON" ]]; then
-    for major in 11 12 13 14; do
-        if command -v "python3.${major}" &>/dev/null; then
-            PYTHON="python3.${major}"
-            break
-        fi
-    done
-fi
 
 if [[ -z "$PYTHON" ]]; then
     echo -e "${YELLOW}未找到 Python 3.11+。请先安装 Python。${RESET}"
@@ -39,13 +35,14 @@ if [[ -z "$PYTHON" ]]; then
     exit 1
 fi
 
-echo -e "使用 Python: ${GREEN}$PYTHON${RESET} ($($PYTHON --version))"
+echo -e "Python: ${GREEN}$PYTHON${RESET} ($($PYTHON --version))"
+echo -e "安装目录: ${CYAN}$INSTALL_DIR${RESET}"
+echo ""
 
-# 项目目录 (脚本所在目录)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VENV_DIR="$SCRIPT_DIR/.venv"
+# 创建目录结构
+mkdir -p "$INSTALL_DIR"/{sessions,knowledge,styles}
 
-# 创建 venv
+# 创建/重建 venv (已有则跳过)
 if [[ ! -d "$VENV_DIR" ]]; then
     echo "创建虚拟环境..."
     $PYTHON -m venv "$VENV_DIR"
@@ -53,22 +50,19 @@ fi
 
 # 安装
 echo "安装 ppt..."
-"$VENV_DIR/bin/pip" install --quiet -e "$SCRIPT_DIR"
+"$VENV_DIR/bin/pip" install --quiet "$SCRIPT_DIR"
 
-# 创建配置目录
-CONFIG_DIR="$HOME/.ppt-agent"
-if [[ ! -d "$CONFIG_DIR" ]]; then
-    mkdir -p "$CONFIG_DIR"
+# 配置模板
+if [[ ! -f "$INSTALL_DIR/config.yaml" ]]; then
+    cp "$SCRIPT_DIR/config.yaml.example" "$INSTALL_DIR/config.yaml"
+    echo -e "配置模板: ${GREEN}$INSTALL_DIR/config.yaml${RESET}"
+    echo -e "${YELLOW}请编辑此文件，填写 LLM API Key。${RESET}"
 fi
 
-# 如果不存在配置文件，从示例复制
-if [[ ! -f "$CONFIG_DIR/config.yaml" ]]; then
-    cp "$SCRIPT_DIR/config.yaml.example" "$CONFIG_DIR/config.yaml"
-    echo -e "已创建配置: ${GREEN}$CONFIG_DIR/config.yaml${RESET}"
-    echo -e "${YELLOW}请编辑此文件，填写你的 LLM API Key。${RESET}"
-fi
+# 知识库目录
+mkdir -p "$INSTALL_DIR/knowledge"/{web,papers,github,graph,chroma,wiki}
 
-# 建立软链接到 PATH
+# 软链接到 PATH
 BIN_DEST=""
 for dest in /usr/local/bin "$HOME/.local/bin" "$HOME/bin"; do
     if [[ -d "$dest" && -w "$dest" ]]; then
@@ -79,19 +73,23 @@ done
 
 if [[ -n "$BIN_DEST" ]]; then
     ln -sf "$VENV_DIR/bin/ppt" "$BIN_DEST"
-    echo -e "命令已链接: ${GREEN}$BIN_DEST${RESET}"
+    echo -e "命令链接: ${GREEN}$BIN_DEST${RESET} → $VENV_DIR/bin/ppt"
 else
-    VENV_BIN="$VENV_DIR/bin/ppt"
-    echo -e "请将以下路径加入 PATH，或手动创建软链接:"
-    echo -e "  ${BOLD}$VENV_BIN${RESET}"
-    echo ""
-    # 尝试通过 PATH 检查
-    if [[ ":$PATH:" == *":$VENV_DIR/bin:"* ]]; then
-        echo -e "${GREEN}ppt 已在 PATH 中。${RESET}"
-    fi
+    echo -e "${YELLOW}未找到可写入的 PATH 目录。请手动添加:${RESET}"
+    echo "  echo 'export PATH=\"$VENV_DIR/bin:\$PATH\"' >> ~/.zshrc"
 fi
 
 echo ""
 echo -e "${GREEN}安装完成！${RESET}"
-echo "运行: ppt --help"
-echo "生成: ppt new \"你的主题\" --template /path/to/template.pptx"
+echo ""
+echo "所有文件位于: $INSTALL_DIR/"
+echo "  $INSTALL_DIR/config.yaml       配置文件"
+echo "  $INSTALL_DIR/.venv/             Python 虚拟环境"
+echo "  $INSTALL_DIR/sessions/          会话存档"
+echo "  $INSTALL_DIR/knowledge/         知识库"
+echo "  $INSTALL_DIR/styles/            风格配置"
+echo ""
+echo "快速开始:"
+echo "  1. vim $INSTALL_DIR/config.yaml   # 填写 API Key"
+echo "  2. ppt --help"
+echo "  3. ppt new \"你的主题\" --template /path/to/template.pptx"

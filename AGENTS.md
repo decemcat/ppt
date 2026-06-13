@@ -8,6 +8,7 @@ A Python CLI tool (`ppt`) for generating technical solution PPTs from `.pptx` te
 - **Package manager:** pip (editable install via `.venv`: `.venv/bin/pip install -e .`)
 - **Test framework:** pytest (`.venv/bin/python -m pytest tests/ -v`)
 - **Git repo** on `main`
+- **Install target:** `~/.ppt-agent/` (all runtime files self-contained)
 
 ## Known commands
 
