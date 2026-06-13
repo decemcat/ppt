@@ -53,6 +53,9 @@ When the user is satisfied with the direction, type /done.
 
 Research:\n{research_summary}"""
 
+USER_BG = "#1e2a3a"
+CONFIRM_BG = "#2d2200"
+
 _config: Config | None = None
 
 
@@ -62,7 +65,7 @@ def set_config(c: Config):
 
 
 def _confirm(tui, prompt_text: str) -> bool:
-    tui.ui_log(f"[yellow]?[/yellow] {prompt_text} [dim](Enter=yes, n=no)[/dim]")
+    tui.ui_log(f"[on {CONFIRM_BG}][bold yellow]?[/bold yellow] {prompt_text} [dim](Enter=yes, n=no)[/dim][/on {CONFIRM_BG}]")
     val = tui.get_input(timeout=120)
     if val is None or tui._stop_event.is_set():
         return False
@@ -84,7 +87,7 @@ def _chat_loop(tui, session, provider, model, system_prompt, end_cmd="/done", la
                 tui.ui_log("  [dim]framework not ready[/dim]")
             continue
         session.add_message("user", ui)
-        tui.ui_log(f"[bold cyan]You:[/bold cyan] {ui[:200]}")
+        tui.ui_log(f"[on {USER_BG}][bold cyan]You:[/bold cyan] {ui[:200]}[/on {USER_BG}]")
         msgs = [
             {"role": "system", "content": system_prompt},
             *[{"role": m["role"], "content": m["content"]} for m in session.messages[-12:]],
@@ -183,7 +186,7 @@ def orchestrator_task(tui):
             if not ui.strip():
                 continue
             session.add_message("user", ui)
-            tui.ui_log(f"[bold cyan]You:[/bold cyan] {ui[:200]}")
+            tui.ui_log(f"[on {USER_BG}][bold cyan]You:[/bold cyan] {ui[:200]}[/on {USER_BG}]")
             req_msgs.append({"role": "user", "content": ui})
             hist = "\n".join(m["content"][:300] for m in req_msgs[-6:])
             tui.ui_task_desc("Clarifying domain")
