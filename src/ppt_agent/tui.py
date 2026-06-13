@@ -2,7 +2,6 @@ from __future__ import annotations
 from textual.app import App, ComposeResult
 from textual.widgets import RichLog, Input, Static
 from textual.containers import Horizontal, Vertical, Container
-from datetime import datetime
 import queue
 import threading
 
@@ -17,6 +16,7 @@ class PPTTUI(App):
     #left { width: 2fr; background: #0d1117; }
     #right { width: 1fr; background: #161b22; padding: 1; }
     #logs { height: 1fr; background: #0d1117; padding: 0 1; }
+    #busy { background: #0d1117; padding: 0 1; color: $text-muted; height: 1; }
     #input_area { background: #0d1117; padding: 1; height: auto; }
     #input { width: 100%; height: 3; padding: 1; background: #161b22; border: none; }
     Input:focus { border: none; }
@@ -38,6 +38,7 @@ class PPTTUI(App):
         self.topic = topic
         self.template_path = template_path
         self.style_name = style_name
+        self._busy_text: str = ""
         self._tasks: dict[str, tuple[bool, Static]] = {}
         self._subagents: dict[str, Static] = {}
         self._stop_event = threading.Event()
@@ -49,6 +50,7 @@ class PPTTUI(App):
         with Horizontal(id="main"):
             with Vertical(id="left"):
                 yield RichLog(id="logs", markup=True, highlight=True, wrap=True)
+                yield Static("", id="busy")
                 yield Container(Input(id="input", placeholder="Type... (/done to end)"), id="input_area")
             with Vertical(id="right"):
                 yield Static("Task", id="right_title")
@@ -67,6 +69,8 @@ class PPTTUI(App):
     def on_mount(self):
         self._update_status_bar()
         self.query_one("#input", Input).focus()
+        self._dot_frame = 0
+        self.set_interval(0.3, self._animate_busy)
         from ppt_agent.orchestrator import orchestrator_task
         t = threading.Thread(target=orchestrator_task(self), daemon=True)
         t.start()
@@ -105,12 +109,24 @@ class PPTTUI(App):
             f" Model: {self._model}  |  Tokens: {self._tokens}  |  Context: {self._ctx_pct}%  |  /done end  |  /framework view  |  Ctrl+Q quit"
         )
 
-    def ui_log(self, message: str):
-        ts = datetime.now().strftime("%H:%M:%S")
-        self.call_from_thread(self._do_log, ts, message)
+    def _animate_busy(self):
+        if not self._busy_text:
+            self.query_one("#busy", Static).update("")
+            return
+        dots = ["·  ", " · ", "  ·", " · "]
+        self._dot_frame = (self._dot_frame + 1) % len(dots)
+        self.query_one("#busy", Static).update(f"  {self._busy_text}{dots[self._dot_frame]}")
 
-    def _do_log(self, ts: str, message: str):
-        self.query_one("#logs", RichLog).write(f"[dim]{ts}[/dim] {message}")
+    def ui_busy(self, text: str):
+        self._busy_text = text
+        if not text:
+            self.call_from_thread(lambda: self.query_one("#busy", Static).update(""))
+
+    def ui_log(self, message: str):
+        self.call_from_thread(self._do_log, message)
+
+    def _do_log(self, message: str):
+        self.query_one("#logs", RichLog).write(message)
 
     def ui_model(self, name: str):
         self._model = name

@@ -53,7 +53,9 @@ def orchestrator_task(tui):
         tui.ui_subagent_add("web", "searching")
         tui.ui_subagent_add("papers", "searching")
         tui.ui_subagent_add("github", "searching")
+        tui.ui_busy("Searching web, papers, github")
         results = mgr.search(topic)
+        tui.ui_busy("")
         tui.ui_subagent_done("web")
         tui.ui_subagent_done("papers")
         tui.ui_subagent_done("github")
@@ -64,7 +66,9 @@ def orchestrator_task(tui):
         if tui._stop_event.is_set():
             return
         tui.ui_subagent_add("summarize", "summarizing research")
+        tui.ui_busy("Summarizing research")
         summary = mgr.summarize(results)
+        tui.ui_busy("")
         tui.ui_subagent_done("summarize")
         session.add_message("system", f"Research:\n{summary}")
         tui.ui_task_done("Summarize")
@@ -94,7 +98,9 @@ def orchestrator_task(tui):
             tui.ui_task_desc("Thinking...")
             if tui._stop_event.is_set():
                 return
+            tui.ui_busy("Agent thinking")
             resp = provider.chat(msgs, model=model)
+            tui.ui_busy("")
             if tui._stop_event.is_set():
                 return
             session.add_message("assistant", resp)
@@ -106,7 +112,9 @@ def orchestrator_task(tui):
         if tui._stop_event.is_set():
             return
         tui.ui_task_desc("Building framework...")
+        tui.ui_busy("Building framework")
         _finalize(session, provider, model, tui)
+        tui.ui_busy("")
         tui.ui_task_done("Framework")
 
         if c.debate.enabled and session.framework:
@@ -117,7 +125,9 @@ def orchestrator_task(tui):
             disc = AdversarialDiscussion(c, router)
             tui.ui_subagent_add("proponent", "arguing")
             tui.ui_subagent_add("critic", "critiquing")
+            tui.ui_busy("Adversarial debate")
             dr = disc.run(framework=session.framework, context=session.messages)
+            tui.ui_busy("")
             tui.ui_subagent_done("proponent")
             tui.ui_subagent_done("critic")
             if tui._stop_event.is_set():
@@ -152,7 +162,9 @@ def orchestrator_task(tui):
         tui.ui_task_desc("Generating...")
         from ppt_agent.generator.image_gen import ImageGenerator
         ig = ImageGenerator(c, router)
+        tui.ui_busy("Generating PPTX")
         output = generate_pptx(session.framework, tpl, style_profile=sp, image_gen=ig)
+        tui.ui_busy("")
         tui.ui_log(f"PPT: {output}")
         tui.ui_task_done("Generate")
 
@@ -163,7 +175,9 @@ def orchestrator_task(tui):
             from ppt_agent.quality.checker import VisualQualityChecker
             vc = VisualQualityChecker(c, router)
             tui.ui_subagent_add("vision", "evaluating slides")
+            tui.ui_busy("Visual quality check")
             cr = vc.check(output)
+            tui.ui_busy("")
             tui.ui_subagent_done("vision")
             tui.ui_log(cr.summary)
             tui.ui_task_done("Visual Check")
