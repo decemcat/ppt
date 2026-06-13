@@ -12,49 +12,21 @@ SENTINEL = "__QUIT__"
 
 class PPTTUI(App):
     CSS = """
-    Screen { layout: vertical; }
-    #status_bar {
-        height: 1;
-        dock: bottom;
-        padding: 0 1;
-        background: $panel;
-        color: $text-muted;
-    }
-    #input_area {
-        height: auto;
-        min-height: 4;
-        max-height: 6;
-        padding: 1;
-        border-top: solid $panel;
-    }
-    #input {
-        width: 100%;
-        height: 100%;
-        border: none;
-        padding: 0;
-    }
-    #main {
-        height: 1fr;
-    }
-    #left {
-        width: 2fr;
-        border-right: solid $panel;
-    }
-    #right {
-        width: 1fr;
-        padding: 0 1;
-    }
-    #logs {
-        height: 1fr;
-        border: none;
-        padding: 0 1;
-    }
-    #right_top { height: auto; padding: 1 0; }
-    #right_mid { height: auto; padding: 1 0; }
-    #right_mid Static { padding: 0; }
-    #right_todo { height: 1fr; padding: 1 0; }
-    .section_title { color: $text-muted; text-style: bold; padding: 1 0 0 0; }
-    .stat_line { padding: 0; color: $text; }
+    Screen { layout: vertical; background: $surface; }
+    #main { height: 1fr; }
+    #left { width: 2fr; background: $surface; }
+    #right { width: 1fr; background: $panel; padding: 1; }
+    #logs { height: 1fr; background: $surface; padding: 0 1; }
+    #right_title { padding: 1 0 0 0; color: $text-muted; text-style: bold; }
+    #task_desc { padding: 0 0 1 0; color: $text; }
+    #stat_block { padding: 1 0; }
+    #stat_line { padding: 0; }
+    #todo_title { padding: 1 0 0 0; color: $text-muted; text-style: bold; }
+    #todo_list { padding: 0; }
+    #input_area { background: $surface; padding: 1; }
+    #input { width: 100%; height: 100%; min-height: 4; padding: 1; background: $panel; border: none; }
+    Input:focus { border: none; }
+    #status_bar { height: 1; padding: 0 1; background: $panel-darken-1; color: $text-muted; }
     """
 
     BINDINGS = [("ctrl+q", "quit", "退出")]
@@ -76,16 +48,15 @@ class PPTTUI(App):
             with Vertical(id="left"):
                 yield RichLog(id="logs", markup=True, highlight=True, wrap=True)
             with Vertical(id="right"):
-                with Container(id="right_top"):
-                    yield Static("Task", classes="section_title")
-                    yield Static("等待开始...", id="task_desc")
-                with Container(id="right_mid"):
-                    yield Static("Stats", classes="section_title")
-                    yield Static("Tokens: 0", id="stat_tokens")
-                    yield Static("Context: —%", id="stat_context")
-                with Container(id="right_todo"):
-                    yield Static("Todo", classes="section_title")
-                    yield Vertical(id="todo_list")
+                yield Static("Task", id="right_title")
+                yield Static("等待开始...", id="task_desc")
+                yield Container(
+                    Static("Tokens: 0", id="stat_tokens"),
+                    Static("Context: —%", id="stat_context"),
+                    id="stat_block",
+                )
+                yield Static("Todo", id="todo_title")
+                yield Vertical(id="todo_list")
         yield Container(Input(id="input", placeholder="输入你的想法... (/done 结束讨论)"), id="input_area")
         yield Static(id="status_bar")
 
@@ -125,8 +96,9 @@ class PPTTUI(App):
         return None
 
     def _update_status_bar(self):
-        bar = self.query_one("#status_bar", Static)
-        bar.update(f" 模型: {self._model}  |  Tokens: {self._tokens}  |  上下文: {self._ctx_pct}%  |  /done 结束讨论  |  /framework 查看框架  |  Ctrl+Q 退出")
+        self.query_one("#status_bar", Static).update(
+            f" 模型: {self._model}  |  Tokens: {self._tokens}  |  上下文: {self._ctx_pct}%  |  /done 结束讨论  |  /framework 查看框架  |  Ctrl+Q 退出"
+        )
 
     def ui_log(self, message: str):
         ts = datetime.now().strftime("%H:%M:%S")
@@ -137,10 +109,7 @@ class PPTTUI(App):
 
     def ui_model(self, name: str):
         self._model = name
-        self.call_from_thread(self._do_model)
-
-    def _do_model(self):
-        self._update_status_bar()
+        self.call_from_thread(self._update_status_bar)
 
     def ui_tokens(self, count: int):
         self._tokens = count
