@@ -161,7 +161,7 @@ def _finalize_framework(session: Session, provider, model: str):
     messages = [
         {"role": "system", "content": "基于对话历史，输出最终的PPT框架。"},
         *[{"role": m["role"], "content": m["content"]} for m in session.messages],
-        {"role": "user", "content": "请根据讨论输出最终的PPT框架，包含slides列表。每页有title、slide_type（title/text/arch_diagram/bullets/section_header）、bullets列表和可选的diagram字段。如果需要AI生成配图（如架构示意图、概念图、数据流程图），可以在对应slide上填写image_prompt描述想要生成的图片内容。"},
+        {"role": "user", "content": "请根据讨论输出最终的PPT框架，包含slides列表。每页有title、slide_type（title/text/arch_diagram/bullets/section_header）、bullets列表和可选的diagram字段。注意：仅在极少情况下（如需要AI理解复杂架构关系、或需要概念示意图辅助理解时），可对个别slide填写image_prompt。绝大多数slide不应使用，最多1-2张。"},
     ]
     with console.status("正在整理框架..."):
         try:
