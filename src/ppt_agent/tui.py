@@ -1,9 +1,13 @@
 from __future__ import annotations
 from textual.app import App, ComposeResult
 from textual.widgets import RichLog, Input, Static
-from textual.containers import Horizontal, Vertical, Container
+from textual.containers import Horizontal, Vertical
 from datetime import datetime
 import queue
+import threading
+
+
+SENTINEL = "__QUIT__"
 
 
 class TaskState:
@@ -16,61 +20,28 @@ class TaskState:
 class PPTTUI(App):
     CSS = """
     Screen { layout: vertical; }
-    #context {
-        height: 1;
-        padding: 0 1;
-        color: $text-muted;
-    }
-    #body {
-        height: 1fr;
-    }
-    #left {
-        width: 2fr;
-        border-right: solid $primary-background;
-    }
-    #right {
-        width: 1fr;
-        padding: 1 0;
-    }
-    #logs {
-        height: 1fr;
-        border: none;
-        padding: 0 1;
-    }
-    #task_list {
-        height: auto;
-        padding: 0 1;
-    }
-    #input_area {
-        height: auto;
-        min-height: 5;
-        max-height: 10;
-        padding: 1;
-        border-top: solid $primary-background;
-    }
-    #input {
-        width: 100%;
-        height: auto;
-        min-height: 3;
-        padding: 1;
-    }
-    Input:focus {
-        border: none;
-    }
-    Input {
-        border: none;
-    }
+    #context { height: 1; padding: 0 1; color: $text-muted; }
+    #body { height: 1fr; }
+    #left { width: 2fr; border-right: solid $primary-background; }
+    #right { width: 1fr; padding: 1 0; }
+    #logs { height: 1fr; border: none; padding: 0 1; }
+    #task_list { height: auto; padding: 0 1; }
+    #input_area { height: auto; min-height: 5; max-height: 10; padding: 1; border-top: solid $primary-background; }
+    #input { width: 100%; height: auto; min-height: 3; padding: 1; border: none; }
     .task_label { padding: 0; }
     .task_title { padding: 1 0 0 1; color: $text-muted; text-style: bold; }
     """
 
-    def __init__(self, input_queue: queue.Queue, topic: str, template_path: str | None = None, style_name: str | None = None):
+    BINDINGS = [("ctrl+q", "quit", "退出")]
+
+    def __init__(self, input_queue: queue.Queue, topic: str = "", template_path: str | None = None, style_name: str | None = None):
         super().__init__()
         self.input_queue = input_queue
         self.topic = topic
         self.template_path = template_path
         self.style_name = style_name
         self._tasks: dict[str, tuple[str, Static]] = {}
+        self._shutdown = threading.Event()
 
     def compose(self) -> ComposeResult:
         yield Static(id="context")
@@ -87,9 +58,32 @@ class PPTTUI(App):
         from ppt_agent.orchestrator import orchestrator_task
         self.run_worker(orchestrator_task(self), exclusive=True, thread=True)
 
+    def on_unmount(self):
+        self._shutdown.set()
+        try:
+            self.input_queue.put_nowait(SENTINEL)
+        except queue.Full:
+            pass
+
+    def action_quit(self):
+        self._shutdown.set()
+        try:
+            self.input_queue.put_nowait(SENTINEL)
+        except queue.Full:
+            pass
+        self.exit()
+
     def on_input_submitted(self, event: Input.Submitted):
         self.input_queue.put(event.value)
         self.query_one("#input", Input).value = ""
+
+    def get_input(self, timeout: float = 0.5) -> str | None:
+        while not self._shutdown.is_set():
+            try:
+                return self.input_queue.get(timeout=timeout)
+            except queue.Empty:
+                continue
+        return None
 
     def ui_log(self, message: str):
         ts = datetime.now().strftime("%H:%M:%S")

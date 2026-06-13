@@ -22,7 +22,6 @@ SYSTEM_PROMPT = """你是PPT Agent，一个专业的技术解决方案PPT生成�
 
 def orchestrator_task(tui):
     """Runs the full PPT generation pipeline in a worker thread."""
-    from ppt_agent.tui import PPTTUI
 
     def run():
         config = _load_config_from_cli()
@@ -41,8 +40,10 @@ def orchestrator_task(tui):
 
         if not template_path and not config.template_path:
             tui.ui_log("请输入模板 .pptx 文件路径")
-            template_path = tui.input_queue.get()
-            tui.ui_log(f"模板: {template_path}")
+            val = tui.get_input(timeout=30)
+            if val is None:
+                return
+            template_path = val
         elif template_path:
             pass
         else:
@@ -70,7 +71,9 @@ def orchestrator_task(tui):
         tui.ui_task_start("用户讨论")
         tui.ui_log("请描述你的PPT思路，输入 /done 结束讨论")
         while True:
-            user_input = tui.input_queue.get()
+            user_input = tui.get_input()
+            if user_input is None:
+                return
             if user_input.strip().lower() == "/done":
                 break
             if user_input.strip().lower() == "/framework":
