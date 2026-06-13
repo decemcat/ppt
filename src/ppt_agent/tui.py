@@ -22,7 +22,7 @@ class PPTTUI(App):
     #logs { height: 1fr; background: #0d1117; padding: 0 1; }
     #busy { background: #0d1117; padding: 0 1 0 1; color: $warning; height: 1; }
     #input_area { background: #0d1117; padding: 1; height: auto; }
-    #input { width: 100%; min-height: 3; max-height: 10; padding: 1; background: #161b22; border: none; }
+    #input { width: 100%; min-height: 2; max-height: 10; padding: 0 1; background: #161b22; border: none; }
     TextArea:focus { border: none; }
     #right_title { padding: 1 0 0 0; color: $text-muted; text-style: bold; }
     #task_desc { padding: 0 0 1 0; color: $text; }
