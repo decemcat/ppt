@@ -12,20 +12,20 @@ SENTINEL = "__QUIT__"
 
 class PPTTUI(App):
     CSS = """
-    Screen { layout: vertical; background: $surface; }
+    Screen { layout: vertical; background: #0d1117; }
     #main { height: 1fr; }
-    #left { width: 2fr; background: $surface; }
-    #right { width: 1fr; background: $panel; padding: 1; }
-    #logs { height: 1fr; background: $surface; padding: 0 1; }
-    #input_area { background: $surface; padding: 1; height: auto; }
-    #input { width: 100%; height: 3; padding: 1; background: $panel; border: none; }
+    #left { width: 2fr; background: #0d1117; }
+    #right { width: 1fr; background: #161b22; padding: 1; }
+    #logs { height: 1fr; background: #0d1117; padding: 0 1; }
+    #input_area { background: #0d1117; padding: 1; height: auto; }
+    #input { width: 100%; height: 3; padding: 1; background: #161b22; border: none; }
     Input:focus { border: none; }
     #right_title { padding: 1 0 0 0; color: $text-muted; text-style: bold; }
     #task_desc { padding: 0 0 1 0; color: $text; }
     #stat_block { padding: 1 0; }
     #todo_title { padding: 1 0 0 0; color: $text-muted; text-style: bold; }
     #todo_list { padding: 0; }
-    #status_bar { height: 1; padding: 0 1; background: $panel-darken-1; color: $text-muted; }
+    #status_bar { height: 1; padding: 0 1; background: #010409; color: $text-muted; }
     """
 
     BINDINGS = [("ctrl+q", "quit", "退出")]
