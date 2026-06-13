@@ -33,6 +33,7 @@ class SlideContent(BaseModel):
     diagram: ArchDiagram | None = None
     bullets: list[str] = Field(default_factory=list)
     notes: str = ""
+    image_prompt: str = ""
 
 
 class SlideFramework(BaseModel):

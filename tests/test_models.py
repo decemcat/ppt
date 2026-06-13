@@ -54,6 +54,18 @@ class TestSlideFramework:
         )
         assert len(slide.bullets) == 3
 
+    def test_image_prompt_default(self):
+        slide = SlideContent(title="系统架构", slide_type="arch_diagram")
+        assert slide.image_prompt == ""
+
+    def test_image_prompt_set(self):
+        slide = SlideContent(
+            title="服务调用链",
+            slide_type="text",
+            image_prompt="A microservice architecture diagram showing API gateway, service mesh, and message queue",
+        )
+        assert "microservice" in slide.image_prompt
+
     def test_framework_creation(self):
         fw = SlideFramework(slides=[SlideContent(title="封面", slide_type="title")])
         assert len(fw.slides) == 1
