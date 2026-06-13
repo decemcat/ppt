@@ -57,12 +57,19 @@ class DebateConfig(BaseModel):
     enabled: bool = True
 
 
+class VisualCheckConfig(BaseModel):
+    enabled: bool = True
+    threshold: float = 7.0
+    provider: str = "auto"
+
+
 class Config(BaseModel):
     template_path: str = ""
     llm: LLMConfig = Field(default_factory=LLMConfig)
     knowledge: KnowledgeConfig = Field(default_factory=KnowledgeConfig)
     proxy: ProxyConfig = Field(default_factory=ProxyConfig)
     debate: DebateConfig = Field(default_factory=DebateConfig)
+    visual_check: VisualCheckConfig = Field(default_factory=VisualCheckConfig)
 
 
 def load_config(path: str | None = None) -> Config:

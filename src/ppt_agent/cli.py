@@ -18,8 +18,9 @@ def cli(ctx, config):
 @click.option("--model", "-m", default=None, help="LLM model override")
 @click.option("--no-debate", is_flag=True, help="Skip adversarial discussion")
 @click.option("--debate-rounds", default=None, type=int, help="Override debate rounds")
+@click.option("--no-visual-check", is_flag=True, help="Skip visual quality check")
 @click.pass_context
-def new(ctx, topic, template, model, no_debate, debate_rounds):
+def new(ctx, topic, template, model, no_debate, debate_rounds, no_visual_check):
     """Start a new PPT project."""
     from ppt_agent.orchestrator import run_new_project
     config = ctx.obj["config"]
@@ -27,6 +28,8 @@ def new(ctx, topic, template, model, no_debate, debate_rounds):
         config.debate.enabled = False
     if debate_rounds is not None:
         config.debate.max_rounds = debate_rounds
+    if no_visual_check:
+        config.visual_check.enabled = False
     run_new_project(
         topic=topic,
         config=config,

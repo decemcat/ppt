@@ -90,6 +90,14 @@ def run_new_project(
         ppt_framework=session.framework,
         template_path=template_path,
     )
+    # Visual quality check
+    if config.visual_check.enabled:
+        from ppt_agent.quality.checker import VisualQualityChecker
+        checker = VisualQualityChecker(config, router)
+        check_result = checker.check(output)
+        console.print(check_result.summary)
+        if not check_result.passed:
+            console.print(f"[yellow]⚠️ 视觉质检评分 {check_result.total_score:.1f}/10，低于阈值 {config.visual_check.threshold}[/yellow]")
     session.add_message("system", f"Generated: {output}")
     session.save()
     console.print(f"[green]✅ PPT已生成: {output}[/green]")
