@@ -91,6 +91,7 @@ class PPTTUI(App):
 
     def on_mount(self):
         self._update_status_bar()
+        self.query_one("#input", Input).focus()
         from ppt_agent.orchestrator import orchestrator_task
         self.run_worker(orchestrator_task(self), exclusive=True, thread=True)
 
@@ -111,7 +112,9 @@ class PPTTUI(App):
 
     def on_input_submitted(self, event: Input.Submitted):
         self.input_queue.put(event.value)
-        self.query_one("#input", Input).value = ""
+        inp = self.query_one("#input", Input)
+        inp.value = ""
+        inp.focus()
 
     def get_input(self, timeout: float = 0.5) -> str | None:
         while not self._shutdown.is_set():
