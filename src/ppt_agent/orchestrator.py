@@ -6,231 +6,188 @@ from ppt_agent.llm.router import ModelRouter
 from ppt_agent.generator.slide_generator import generate_pptx
 
 SYSTEM_PROMPT = """你是PPT Agent，一个专业的技术解决方案PPT生成助手。
+工作流程: 1.讨论PPT思路 2.提出slide框架 3.生成.pptx文件
+风格: 逻辑清晰、内容精炼、适合企业技术方案汇报
 
-你的工作流程：
-1. 与用户讨论PPT思路，了解背景、受众、核心论点
-2. 基于讨论结果，提出清晰的slide框架（标题+每页类型+核心内容）
-3. 确认框架后，生成精美的.pptx文件
+参考资料:\n\n{research_summary}"""
 
-风格要求：
-- 逻辑清晰，抽象层次合理
-- 内容精炼，避免堆砌
-- 适合企业技术方案汇报场景
+_config: Config | None = None
 
-以下是关于该主题的研究资料摘要，供参考：\n\n{research_summary}"""
+
+def set_config(c: Config):
+    global _config
+    _config = c
 
 
 def orchestrator_task(tui):
-    """Runs the full PPT generation pipeline in a worker thread."""
-
     def run():
-        config = _load_config_from_cli()
+        c = _config or Config()
         topic = tui.topic
-        template_path = tui.template_path
-        style_name = tui.style_name
+        tpl = tui.template_path or c.template_path
+        stl = tui.style_name
 
-        tui.ui_init_tasks([
-            "搜索资料", "研究总结", "用户讨论", "确认框架",
-            "对抗辩论", "风格加载", "生成PPT", "视觉质检", "保存会话",
-        ])
+        tui.ui_init_tasks(["搜索资料","研究总结","用户讨论","确认框架","对抗辩论","风格加载","生成PPT","视觉质检","保存会话"])
+        tui.ui_task_desc(f"项目: {topic}")
         tui.ui_log(f"开始新项目: {topic}")
 
         session = Session(topic=topic)
         session.add_message("system", f"Topic: {topic}")
 
-        if not template_path and not config.template_path:
-            tui.ui_log("请输入模板 .pptx 文件路径")
-            val = tui.get_input(timeout=30)
+        if not tpl:
+            tui.ui_task_desc("请输入模板路径")
+            val = tui.get_input(timeout=120)
             if val is None:
                 return
-            template_path = val
-        elif template_path:
-            pass
-        else:
-            template_path = config.template_path
-        session.template_path = template_path
+            tpl = val
+        session.template_path = tpl
 
-        router = ModelRouter(config)
+        router = ModelRouter(c)
         provider, model = router.get_model("daily_chat")
-        tui.ui_context(f"{config.llm.default_provider}:{model}")
+        tui.ui_model(f"{c.llm.default_provider}:{model}")
 
-        # Research
-        tui.ui_task_start("搜索资料")
+        tui.ui_task_running("搜索资料")
         from ppt_agent.research.manager import ResearchManager
-        research_mgr = ResearchManager(config)
-        results = research_mgr.search(topic)
+        mgr = ResearchManager(c)
+        results = mgr.search(topic)
         tui.ui_log(f"搜索: {len(results.get('web',[]))}网页 {len(results.get('papers',[]))}论文 {len(results.get('github',[]))}项目")
         tui.ui_task_done("搜索资料")
 
-        tui.ui_task_start("研究总结")
-        summary = research_mgr.summarize(results)
-        session.add_message("system", f"Research results:\n{summary}")
+        tui.ui_task_running("研究总结")
+        summary = mgr.summarize(results)
+        session.add_message("system", f"Research:\n{summary}")
         tui.ui_task_done("研究总结")
+        _est_ctx(tui, summary)
 
-        # Discussion
-        tui.ui_task_start("用户讨论")
-        tui.ui_log("请描述你的PPT思路，输入 /done 结束讨论")
+        tui.ui_task_running("用户讨论")
         while True:
-            user_input = tui.get_input()
-            if user_input is None:
+            ui = tui.get_input()
+            if ui is None:
                 return
-            if user_input.strip().lower() == "/done":
+            if ui.strip().lower() == "/done":
                 break
-            if user_input.strip().lower() == "/framework":
+            if ui.strip().lower() == "/framework":
                 if session.framework:
-                    for i, slide in enumerate(session.framework.framework.slides):
-                        tui.ui_log(f"  {i+1}. [{slide.slide_type}] {slide.title}")
+                    for i, s in enumerate(session.framework.framework.slides):
+                        tui.ui_log(f"  {i+1}. [{s.slide_type}] {s.title}")
                 else:
                     tui.ui_log("  框架尚未确定")
                 continue
-            session.add_message("user", user_input)
-            tui.ui_log(f"[bold cyan]You:[/bold cyan] {user_input[:200]}")
-            messages = [
-                {"role": "system", "content": SYSTEM_PROMPT.replace("{research_summary}", summary)},
-                *[{"role": m["role"], "content": m["content"]} for m in session.messages[-10:]],
+            session.add_message("user", ui)
+            tui.ui_log(f"[bold cyan]You:[/bold cyan] {ui[:200]}")
+            msgs = [
+                {"role":"system","content": SYSTEM_PROMPT.replace("{research_summary}", summary)},
+                *[{"role":m["role"],"content":m["content"]} for m in session.messages[-10:]],
             ]
-            tui.ui_log("[dim]思考中...[/dim]")
-            response = provider.chat(messages, model=model)
-            session.add_message("assistant", response)
-            tui.ui_log(f"{response}")
+            _est_ctx(tui, summary)
+            tui.ui_task_desc("思考中...")
+            resp = provider.chat(msgs, model=model)
+            session.add_message("assistant", resp)
+            tui.ui_log(f"{resp}")
+            tui.ui_task_desc("等待输入")
         tui.ui_task_done("用户讨论")
 
-        # Framework
-        tui.ui_task_start("确认框架")
-        _finalize_framework(session, provider, model, tui)
+        tui.ui_task_running("确认框架")
+        tui.ui_task_desc("整理框架中...")
+        _finalize(session, provider, model, tui)
         tui.ui_task_done("确认框架")
 
-        # Debate
-        if config.debate.enabled and session.framework:
-            tui.ui_task_start("对抗辩论")
+        if c.debate.enabled and session.framework:
+            tui.ui_task_running("对抗辩论")
             from ppt_agent.adversarial.discussion import AdversarialDiscussion
-            discussion = AdversarialDiscussion(config, router)
-            debate_result = discussion.run(framework=session.framework, context=session.messages)
-            session.framework = debate_result.final_framework
-            tui.ui_log(f"辩论完成，评分: {debate_result.logic_score:.0f}/100")
-            for imp in debate_result.improvements:
+            disc = AdversarialDiscussion(c, router)
+            dr = disc.run(framework=session.framework, context=session.messages)
+            session.framework = dr.final_framework
+            tui.ui_log(f"辩论评分: {dr.logic_score:.0f}/100")
+            for imp in dr.improvements:
                 tui.ui_log(f"  ✓ {imp}")
             tui.ui_task_done("对抗辩论")
         else:
             tui.ui_task_done("对抗辩论")
 
-        # Style
-        tui.ui_task_start("风格加载")
-        style_profile = None
-        if style_name:
+        tui.ui_task_running("风格加载")
+        sp = None
+        if stl:
             from ppt_agent.style.profile import StyleProfile as _SP
             try:
-                style_profile = _SP.load(style_name)
-                tui.ui_log(f"已加载风格: {style_name}")
+                sp = _SP.load(stl)
             except FileNotFoundError:
-                tui.ui_log(f"风格 '{style_name}' 未找到")
+                pass
         else:
             from ppt_agent.style.profile import StyleProfile as _SP
             try:
-                style_profile = _SP.load("default")
+                sp = _SP.load("default")
             except FileNotFoundError:
                 pass
         tui.ui_task_done("风格加载")
 
-        # Generate
-        tui.ui_task_start("生成PPT")
+        tui.ui_task_running("生成PPT")
+        tui.ui_task_desc("生成中...")
         from ppt_agent.generator.image_gen import ImageGenerator
-        image_gen = ImageGenerator(config, router)
-        output = generate_pptx(
-            ppt_framework=session.framework,
-            template_path=template_path,
-            style_profile=style_profile,
-            image_gen=image_gen,
-        )
-        tui.ui_log(f"PPT已生成: {output}")
+        ig = ImageGenerator(c, router)
+        output = generate_pptx(session.framework, tpl, style_profile=sp, image_gen=ig)
+        tui.ui_log(f"PPT: {output}")
         tui.ui_task_done("生成PPT")
 
-        # Visual check
-        if config.visual_check.enabled:
-            tui.ui_task_start("视觉质检")
+        if c.visual_check.enabled:
+            tui.ui_task_running("视觉质检")
             from ppt_agent.quality.checker import VisualQualityChecker
-            checker = VisualQualityChecker(config, router)
-            check_result = checker.check(output)
-            tui.ui_log(check_result.summary)
-            if not check_result.passed:
-                tui.ui_log(f"⚠ 质检评分 {check_result.total_score:.1f}/10 低于阈值")
+            vc = VisualQualityChecker(c, router)
+            cr = vc.check(output)
+            tui.ui_log(cr.summary)
             tui.ui_task_done("视觉质检")
         else:
             tui.ui_task_done("视觉质检")
 
-        # Save
-        tui.ui_task_start("保存会话")
+        tui.ui_task_running("保存会话")
         session.add_message("system", f"Generated: {output}")
         session.save()
-        tui.ui_log("✅ 会话已保存")
         tui.ui_task_done("保存会话")
-
+        tui.ui_task_desc("完成")
         tui.ui_log(f"[green]✅ PPT已生成: {output}[/green]")
-
     return run
 
 
-def _finalize_framework(session: Session, provider, model: str, tui):
-    messages = [
-        {"role": "system", "content": "基于对话历史，输出最终的PPT框架。"},
-        *[{"role": m["role"], "content": m["content"]} for m in session.messages],
-        {"role": "user", "content": "请根据讨论输出最终的PPT框架，包含slides列表。每页有title、slide_type（title/text/arch_diagram/bullets/section_header）、bullets列表和可选的diagram字段。注意：仅在极少情况下，可对个别slide填写image_prompt。最多1-2张。"},
+def _est_ctx(tui, text: str):
+    tok = len(text) // 4
+    tui.ui_tokens(tok)
+    tui.ui_context_pct(min(tok * 100 // 128000, 100))
+
+
+def _finalize(session, provider, model, tui):
+    msgs = [
+        {"role":"system","content":"输出最终的PPT框架。"},
+        *[{"role":m["role"],"content":m["content"]} for m in session.messages],
+        {"role":"user","content":"输出PPT框架，每页有title/slide_type/bullets/diagram。仅极少情况填image_prompt，最多1-2张。"},
     ]
-    tui.ui_log("整理框架中...")
     try:
-        framework = provider.chat_structured(messages, PPTFramework, model=model)
-        session.framework = framework
-        for i, slide in enumerate(framework.framework.slides):
-            tui.ui_log(f"  {i+1}. [{slide.slide_type}] {slide.title}")
-    except Exception as e:
+        fw = provider.chat_structured(msgs, PPTFramework, model=model)
+        session.framework = fw
+        for i, s in enumerate(fw.framework.slides):
+            tui.ui_log(f"  {i+1}. [{s.slide_type}] {s.title}")
+    except Exception:
         tui.ui_log("框架解析出错，使用默认结构")
         session.framework = PPTFramework(
             title=session.topic,
             framework=SlideFramework(slides=[
                 SlideContent(title=session.topic, slide_type="title"),
-                SlideContent(title="背景", slide_type="text", bullets=["内容待补充"]),
-                SlideContent(title="方案总览", slide_type="arch_diagram"),
-                SlideContent(title="总结", slide_type="text", bullets=["内容待补充"]),
+                SlideContent(title="背景", slide_type="text", bullets=["待补充"]),
+                SlideContent(title="方案", slide_type="arch_diagram"),
+                SlideContent(title="总结", slide_type="text", bullets=["待补充"]),
             ]),
         )
 
 
-# Module-level config cache set by CLI
-_config: Config | None = None
-
-
-def set_config(config: Config):
-    global _config
-    _config = config
-
-
-def _load_config_from_cli() -> Config:
-    if _config is None:
-        return Config()
-    return _config
-
-
-def run_new_project(
-    topic: str,
-    config: Config,
-    template_path: str | None = None,
-    model_override: str | None = None,
-    style_name: str | None = None,
-):
-    """Entry point — starts the Textual TUI in the main thread."""
+def run_new_project(topic, config, template_path=None, model_override=None, style_name=None):
     import queue
     set_config(config)
     from ppt_agent.tui import PPTTUI
-    q = queue.Queue()
-    app = PPTTUI(q, topic=topic, template_path=template_path, style_name=style_name)
+    app = PPTTUI(queue.Queue(), topic=topic, template_path=template_path, style_name=style_name)
     app.run()
 
 
-def run_resume_session(session_path: str, config: Config):
-    """Resume a session via the Textual TUI."""
+def run_resume_session(session_path, config):
     import queue
     set_config(config)
     from ppt_agent.tui import PPTTUI
-    q = queue.Queue()
-    app = PPTTUI(q, topic=f"resume:{session_path}", template_path=None, style_name=None)
+    app = PPTTUI(queue.Queue(), topic=f"resume:{session_path}")
     app.run()
