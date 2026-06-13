@@ -7,6 +7,7 @@ import threading
 
 
 SENTINEL = "__QUIT__"
+SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
 
 class PPTTUI(App):
@@ -16,7 +17,7 @@ class PPTTUI(App):
     #left { width: 2fr; background: #0d1117; }
     #right { width: 1fr; background: #161b22; padding: 1; }
     #logs { height: 1fr; background: #0d1117; padding: 0 1; }
-    #busy { background: #0d1117; padding: 0 1; color: $text-muted; height: 1; }
+    #busy { background: #0d1117; padding: 0 1 0 1; color: $warning; height: 1; }
     #input_area { background: #0d1117; padding: 1; height: auto; }
     #input { width: 100%; height: 3; padding: 1; background: #161b22; border: none; }
     Input:focus { border: none; }
@@ -70,7 +71,7 @@ class PPTTUI(App):
         self._update_status_bar()
         self.query_one("#input", Input).focus()
         self._dot_frame = 0
-        self.set_interval(0.3, self._animate_busy)
+        self.set_interval(0.08, self._animate_busy)
         from ppt_agent.orchestrator import orchestrator_task
         t = threading.Thread(target=orchestrator_task(self), daemon=True)
         t.start()
@@ -113,9 +114,8 @@ class PPTTUI(App):
         if not self._busy_text:
             self.query_one("#busy", Static).update("")
             return
-        dots = ["·  ", " · ", "  ·", " · "]
-        self._dot_frame = (self._dot_frame + 1) % len(dots)
-        self.query_one("#busy", Static).update(f"  {self._busy_text}{dots[self._dot_frame]}")
+        self._dot_frame = (self._dot_frame + 1) % len(SPINNER_FRAMES)
+        self.query_one("#busy", Static).update(f"  {SPINNER_FRAMES[self._dot_frame]} {self._busy_text}")
 
     def ui_busy(self, text: str):
         self._busy_text = text

@@ -28,7 +28,8 @@ def orchestrator_task(tui):
 
         tui.ui_init_tasks(["Research","Summarize","Discuss","Framework","Debate","Style","Generate","Visual Check","Save"])
         tui.ui_task_desc(f"Project: {topic}")
-        tui.ui_log(f"Start: {topic}")
+        tui.ui_log(f"[bold]● {topic}[/bold]")
+        tui.ui_log("[dim]─" * 40 + "[/dim]")
 
         session = Session(topic=topic)
         session.add_message("system", f"Topic: {topic}")
@@ -44,36 +45,42 @@ def orchestrator_task(tui):
         router = ModelRouter(c)
         provider, model = router.get_model("daily_chat")
         tui.ui_model(f"{c.llm.default_provider}:{model}")
+        tui.ui_log(f"[dim]Model: {c.llm.default_provider}:{model}[/dim]")
 
         tui.ui_task_running("Research")
         from ppt_agent.research.manager import ResearchManager
         if tui._stop_event.is_set():
             return
         mgr = ResearchManager(c)
+        tui.ui_log("[bold]▸ Search[/bold]")
         tui.ui_subagent_add("web", "searching")
         tui.ui_subagent_add("papers", "searching")
         tui.ui_subagent_add("github", "searching")
-        tui.ui_busy("Searching web, papers, github")
+        tui.ui_busy("Searching web, papers, github repositories")
         results = mgr.search(topic)
         tui.ui_busy("")
         tui.ui_subagent_done("web")
         tui.ui_subagent_done("papers")
         tui.ui_subagent_done("github")
-        tui.ui_log(f"Search: {len(results.get('web',[]))} web {len(results.get('papers',[]))} papers {len(results.get('github',[]))} repos")
+        tui.ui_log(f"  [green]✓[/green] Found [bold]{len(results.get('web',[]))}[/bold] web, [bold]{len(results.get('papers',[]))}[/bold] papers, [bold]{len(results.get('github',[]))}[/bold] repos")
         tui.ui_task_done("Research")
 
         tui.ui_task_running("Summarize")
         if tui._stop_event.is_set():
             return
         tui.ui_subagent_add("summarize", "summarizing research")
-        tui.ui_busy("Summarizing research")
+        tui.ui_busy("Summarizing research findings")
         summary = mgr.summarize(results)
         tui.ui_busy("")
         tui.ui_subagent_done("summarize")
+        tui.ui_subagent_done("summarize")
         session.add_message("system", f"Research:\n{summary}")
         tui.ui_task_done("Summarize")
+        tui.ui_log(f"  [green]✓[/green] Research summary ready ({len(summary)} chars)")
         _est_ctx(tui, summary)
 
+        tui.ui_log("[dim]─" * 40 + "[/dim]")
+        tui.ui_log("[bold]▸ Discussion[/bold]")
         tui.ui_task_running("Discuss")
         while True:
             ui = tui.get_input()
@@ -98,7 +105,7 @@ def orchestrator_task(tui):
             tui.ui_task_desc("Thinking...")
             if tui._stop_event.is_set():
                 return
-            tui.ui_busy("Agent thinking")
+            tui.ui_busy(f"Agent: {ui[:60]}...")
             resp = provider.chat(msgs, model=model)
             tui.ui_busy("")
             if tui._stop_event.is_set():
@@ -108,16 +115,19 @@ def orchestrator_task(tui):
             tui.ui_task_desc("Awaiting input")
         tui.ui_task_done("Discuss")
 
+        tui.ui_log("[dim]─" * 40 + "[/dim]")
+        tui.ui_log("[bold]▸ Framework[/bold]")
         tui.ui_task_running("Framework")
         if tui._stop_event.is_set():
             return
         tui.ui_task_desc("Building framework...")
-        tui.ui_busy("Building framework")
+        tui.ui_busy("Building slide framework")
         _finalize(session, provider, model, tui)
         tui.ui_busy("")
         tui.ui_task_done("Framework")
 
         if c.debate.enabled and session.framework:
+            tui.ui_log("[bold]▸ Debate[/bold]")
             tui.ui_task_running("Debate")
             if tui._stop_event.is_set():
                 return
@@ -125,17 +135,19 @@ def orchestrator_task(tui):
             disc = AdversarialDiscussion(c, router)
             tui.ui_subagent_add("proponent", "arguing")
             tui.ui_subagent_add("critic", "critiquing")
-            tui.ui_busy("Adversarial debate")
+            tui.ui_subagent_add("judge", "evaluating")
+            tui.ui_busy("Running adversarial debate")
             dr = disc.run(framework=session.framework, context=session.messages)
             tui.ui_busy("")
             tui.ui_subagent_done("proponent")
             tui.ui_subagent_done("critic")
+            tui.ui_subagent_done("judge")
             if tui._stop_event.is_set():
                 return
             session.framework = dr.final_framework
-            tui.ui_log(f"Debate score: {dr.logic_score:.0f}/100")
+            tui.ui_log(f"  [green]✓[/green] Logic score: [bold]{dr.logic_score:.0f}/100[/bold]")
             for imp in dr.improvements:
-                tui.ui_log(f"  + {imp}")
+                tui.ui_log(f"  [green]+[/green] {imp}")
             tui.ui_task_done("Debate")
         else:
             tui.ui_task_done("Debate")
@@ -154,18 +166,22 @@ def orchestrator_task(tui):
                 sp = _SP.load("default")
             except FileNotFoundError:
                 pass
+        if sp:
+            tui.ui_log(f"  [green]✓[/green] Style loaded: [bold]{sp.name}[/bold]")
         tui.ui_task_done("Style")
 
+        tui.ui_log("[dim]─" * 40 + "[/dim]")
+        tui.ui_log("[bold]▸ Generate[/bold]")
         tui.ui_task_running("Generate")
         if tui._stop_event.is_set():
             return
-        tui.ui_task_desc("Generating...")
+        tui.ui_task_desc("Generating PPTX...")
         from ppt_agent.generator.image_gen import ImageGenerator
         ig = ImageGenerator(c, router)
-        tui.ui_busy("Generating PPTX")
+        tui.ui_busy("Generating PPTX file")
         output = generate_pptx(session.framework, tpl, style_profile=sp, image_gen=ig)
         tui.ui_busy("")
-        tui.ui_log(f"PPT: {output}")
+        tui.ui_log(f"  [green]✓[/green] [bold]{output}[/bold]")
         tui.ui_task_done("Generate")
 
         if c.visual_check.enabled:
@@ -175,11 +191,11 @@ def orchestrator_task(tui):
             from ppt_agent.quality.checker import VisualQualityChecker
             vc = VisualQualityChecker(c, router)
             tui.ui_subagent_add("vision", "evaluating slides")
-            tui.ui_busy("Visual quality check")
+            tui.ui_busy("Running visual quality check")
             cr = vc.check(output)
             tui.ui_busy("")
             tui.ui_subagent_done("vision")
-            tui.ui_log(cr.summary)
+            tui.ui_log(f"  [green]✓[/green] {cr.summary}")
             tui.ui_task_done("Visual Check")
         else:
             tui.ui_task_done("Visual Check")
@@ -189,7 +205,8 @@ def orchestrator_task(tui):
         session.save()
         tui.ui_task_done("Save")
         tui.ui_task_desc("Done")
-        tui.ui_log(f"[green]PPT generated: {output}[/green]")
+        tui.ui_log("[dim]─" * 40 + "[/dim]")
+        tui.ui_log(f"[green bold]● Done: {output}[/green bold]")
     return run
 
 
