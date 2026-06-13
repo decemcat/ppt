@@ -33,12 +33,9 @@ class PPTTUI(App):
 
     BINDINGS = [("ctrl+q", "quit", "退出")]
 
-    def __init__(self, input_queue: queue.Queue, topic: str = "", template_path: str | None = None, style_name: str | None = None):
+    def __init__(self, input_queue: queue.Queue):
         super().__init__()
         self.input_queue = input_queue
-        self.topic = topic
-        self.template_path = template_path
-        self.style_name = style_name
         self._busy_text: str = ""
         self._tasks: dict[str, tuple[bool, Static]] = {}
         self._subagents: dict[str, Static] = {}
