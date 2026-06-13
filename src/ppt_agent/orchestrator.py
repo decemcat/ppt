@@ -75,6 +75,16 @@ def run_new_project(
         console.print(Panel(response, style="yellow"))
     console.print(Panel("正在确认最终框架...", style="blue"))
     _finalize_framework(session, provider, model)
+    # Adversarial discussion
+    if config.debate.enabled and session.framework:
+        from ppt_agent.adversarial.discussion import AdversarialDiscussion
+        discussion = AdversarialDiscussion(config, router)
+        debate_result = discussion.run(framework=session.framework, context=session.messages)
+        session.framework = debate_result.final_framework
+        console.print(f"[green]对抗讨论完成，逻辑评分: {debate_result.logic_score:.0f}/100[/green]")
+        if debate_result.improvements:
+            for imp in debate_result.improvements:
+                console.print(f"  ✓ {imp}")
     console.print(Panel("正在生成PPT...", style="blue"))
     output = generate_pptx(
         ppt_framework=session.framework,

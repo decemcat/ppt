@@ -16,13 +16,20 @@ def cli(ctx, config):
 @click.argument("topic")
 @click.option("--template", "-t", default=None, help="Path to .pptx template")
 @click.option("--model", "-m", default=None, help="LLM model override")
+@click.option("--no-debate", is_flag=True, help="Skip adversarial discussion")
+@click.option("--debate-rounds", default=None, type=int, help="Override debate rounds")
 @click.pass_context
-def new(ctx, topic, template, model):
+def new(ctx, topic, template, model, no_debate, debate_rounds):
     """Start a new PPT project."""
     from ppt_agent.orchestrator import run_new_project
+    config = ctx.obj["config"]
+    if no_debate:
+        config.debate.enabled = False
+    if debate_rounds is not None:
+        config.debate.max_rounds = debate_rounds
     run_new_project(
         topic=topic,
-        config=ctx.obj["config"],
+        config=config,
         template_path=template,
         model_override=model,
     )
