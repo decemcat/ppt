@@ -64,9 +64,8 @@ visual_check:
 
 # --- AI 图片生成 (DALL-E / 兼容 API) ---
 image_gen:
-  enabled: false             # 默认关闭; 命令行加 --image-gen 或在配置中设为 true
-  provider: auto
-  model: ""                  # 如 "dall-e-3"；留空 = 使用 fast_model
+  provider: auto       # auto = 跟随 default_provider; 未配置 API Key 时自动跳过
+  model: ""            # 如 "dall-e-3"；留空 = 使用 fast_model
 
 # --- 模板与风格 ---
 template_path: ""            # .pptx 模板路径

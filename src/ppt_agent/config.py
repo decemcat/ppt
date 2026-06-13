@@ -69,7 +69,6 @@ class VisualCheckConfig(BaseModel):
 
 
 class ImageGenConfig(BaseModel):
-    enabled: bool = False
     provider: str = "auto"
     model: str = ""
 

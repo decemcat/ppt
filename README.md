@@ -47,7 +47,6 @@ ppt new "Kubernetes Autoscaling Architecture" --template company.pptx
 | `--no-debate` | Skip adversarial discussion |
 | `--debate-rounds N` | Number of debate rounds (default: 2) |
 | `--no-visual-check` | Skip visual quality check |
-| `--image-gen` | Enable AI image generation (cover/section illustrations) |
 
 ## Configuration
 
@@ -91,10 +90,9 @@ visual_check:
   provider: auto           # auto uses default_provider; or name like "deepseek"
   model: ""                # override vision model (empty = use fast_model)
 
-image_gen:                 # AI image generation (DALL-E / compatible API)
-  enabled: false           # disabled by default; use --image-gen flag to enable
-  provider: auto
-  model: ""                # e.g., "dall-e-3"
+image_gen:                 # AI image generation (DALL-E / compatible)
+  provider: auto            # uses default_provider if auto
+  model: ""                 # e.g., "dall-e-3"; empty = use fast_model
 
 template_path: /path/to/company-template.pptx
 style_path: /path/to/saved-style.yaml

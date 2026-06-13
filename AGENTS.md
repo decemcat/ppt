@@ -18,7 +18,6 @@ A Python CLI tool (`ppt`) for generating technical solution PPTs from `.pptx` te
 - `ppt --help` — CLI help (after install.sh)
 - `ppt new "<topic>" --template <path>` — start new project
 - `ppt new "<topic>" --template <path> --style <name>` — start with style profile
-- `ppt new "<topic>" --image-gen` — start with AI image generation
 - `ppt wiki` — open LLM Wiki CLI browser
 - `ppt wiki --serve` — open LLM Wiki web server (localhost:8765)
 
