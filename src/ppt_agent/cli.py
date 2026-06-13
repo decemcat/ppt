@@ -31,14 +31,12 @@ def new(ctx, topic, template, model, no_debate, debate_rounds, no_visual_check, 
         config.debate.max_rounds = debate_rounds
     if no_visual_check:
         config.visual_check.enabled = False
-    if style_name:
-        from pathlib import Path as _P
-        config.style_path = str(_P.home() / ".ppt-agent" / "styles" / f"{style_name}.yaml")
     run_new_project(
         topic=topic,
         config=config,
         template_path=template,
         model_override=model,
+        style_name=style_name,
     )
 
 

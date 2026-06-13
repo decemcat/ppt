@@ -85,7 +85,6 @@ class Config(BaseModel):
     debate: DebateConfig = Field(default_factory=DebateConfig)
     visual_check: VisualCheckConfig = Field(default_factory=VisualCheckConfig)
     image_gen: ImageGenConfig = Field(default_factory=ImageGenConfig)
-    style_path: str | None = None
 
 
 def load_config(path: str | None = None) -> Config:

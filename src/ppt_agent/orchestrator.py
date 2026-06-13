@@ -33,6 +33,7 @@ def run_new_project(
     config: Config,
     template_path: str | None = None,
     model_override: str | None = None,
+    style_name: str | None = None,
 ):
     """Entry point for `ppt-agent new`."""
     session = Session(topic=topic)
@@ -87,12 +88,13 @@ def run_new_project(
                 console.print(f"  ✓ {imp}")
     console.print(Panel("正在生成PPT...", style="blue"))
     style_profile = None
-    if config.style_path:
+    if style_name:
         from ppt_agent.style.profile import StyleProfile as _SP
-        from pathlib import Path as _P
-        sp = _P(config.style_path)
-        if sp.exists():
-            style_profile = _SP.load(sp.stem)
+        try:
+            style_profile = _SP.load(style_name)
+            console.print(f"[cyan]已加载风格配置: {style_name}[/cyan]")
+        except FileNotFoundError:
+            console.print(f"[yellow]风格配置 '{style_name}' 未找到，使用默认样式[/yellow]")
     from ppt_agent.generator.image_gen import ImageGenerator
     image_gen = ImageGenerator(config, router)
     output = generate_pptx(

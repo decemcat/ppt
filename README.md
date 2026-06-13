@@ -99,7 +99,6 @@ image_gen:                 # AI image generation (DALL-E / compatible)
   model: ""                # e.g., "dall-e-3"
 
 template_path: /path/to/company-template.pptx
-style_path: /path/to/saved-style.yaml
 ```
 
 ## How It Works

@@ -71,6 +71,5 @@ image_gen:
   provider: auto       # auto = 跟随 default_provider
   model: ""            # 如 "dall-e-3"；留空 = 使用 fast_model
 
-# --- 模板与风格 ---
+# --- 模板 ---
 template_path: ""            # .pptx 模板路径
-style_path: ""               # 默认风格配置文件路径
