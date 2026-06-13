@@ -1,8 +1,7 @@
 from __future__ import annotations
 from textual.app import App, ComposeResult
-from textual.widgets import Header, Footer, RichLog, Input, Static
-from textual.containers import Horizontal, Vertical
-from textual.worker import get_current_worker
+from textual.widgets import RichLog, Input, Static
+from textual.containers import Horizontal, Vertical, Container
 from datetime import datetime
 import queue
 
@@ -16,14 +15,53 @@ class TaskState:
 
 class PPTTUI(App):
     CSS = """
-    #context { height: 1; background: $panel; padding: 0 1; }
-    #main { height: 1fr; }
-    #left { width: 2fr; border: solid green; }
-    #right { width: 1fr; border: solid blue; padding: 1; }
-    #logs { height: 1fr; }
-    #task_list { height: auto; }
-    #input { dock: bottom; height: 3; border: solid $accent; }
-    .task_label { padding: 0 1; }
+    Screen { layout: vertical; }
+    #context {
+        height: 1;
+        padding: 0 1;
+        color: $text-muted;
+    }
+    #body {
+        height: 1fr;
+    }
+    #left {
+        width: 2fr;
+        border-right: solid $primary-background;
+    }
+    #right {
+        width: 1fr;
+        padding: 1 0;
+    }
+    #logs {
+        height: 1fr;
+        border: none;
+        padding: 0 1;
+    }
+    #task_list {
+        height: auto;
+        padding: 0 1;
+    }
+    #input_area {
+        height: auto;
+        min-height: 5;
+        max-height: 10;
+        padding: 1;
+        border-top: solid $primary-background;
+    }
+    #input {
+        width: 100%;
+        height: auto;
+        min-height: 3;
+        padding: 1;
+    }
+    Input:focus {
+        border: none;
+    }
+    Input {
+        border: none;
+    }
+    .task_label { padding: 0; }
+    .task_title { padding: 1 0 0 1; color: $text-muted; text-style: bold; }
     """
 
     def __init__(self, input_queue: queue.Queue, topic: str, template_path: str | None = None, style_name: str | None = None):
@@ -35,15 +73,14 @@ class PPTTUI(App):
         self._tasks: dict[str, tuple[str, Static]] = {}
 
     def compose(self) -> ComposeResult:
-        yield Header()
         yield Static(id="context")
-        with Horizontal(id="main"):
+        with Horizontal(id="body"):
             with Vertical(id="left"):
-                yield RichLog(id="logs", markup=True, highlight=True)
+                yield RichLog(id="logs", markup=True, highlight=True, wrap=True)
             with Vertical(id="right"):
+                yield Static("  Progress", classes="task_title")
                 yield Vertical(id="task_list")
         yield Input(id="input", placeholder="输入你的想法... (/done 结束)")
-        yield Footer()
 
     def on_mount(self):
         self.query_one("#context", Static).update("Context: —")
