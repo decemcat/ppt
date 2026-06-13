@@ -6,12 +6,20 @@ from pathlib import Path
 
 
 class Session:
-    def __init__(self, topic: str, session_dir: str | None = None):
-        self.session_id = str(uuid.uuid4())[:8]
+    def __init__(
+        self,
+        topic: str,
+        session_id: str | None = None,
+        created_at: str | None = None,
+        messages: list[dict] | None = None,
+        framework: dict | None = None,
+        session_dir: str | None = None,
+    ):
+        self.session_id = session_id or str(uuid.uuid4())[:8]
         self.topic = topic
-        self.created_at = datetime.now().isoformat()
-        self.messages: list[dict] = []
-        self.framework: dict | None = None
+        self.created_at = created_at or datetime.now().isoformat()
+        self.messages = messages or []
+        self.framework = framework
         self.session_dir = session_dir or str(Path.home() / ".ppt-agent" / "sessions")
 
     def add_message(self, role: str, content: str, metadata: dict | None = None):
@@ -38,11 +46,15 @@ class Session:
 
     @classmethod
     def load(cls, path: str) -> Session:
-        with open(path) as f:
-            data = json.load(f)
-        session = cls(topic=data["topic"])
-        session.session_id = data["session_id"]
-        session.created_at = data["created_at"]
-        session.messages = data["messages"]
-        session.framework = data.get("framework")
-        return session
+        try:
+            with open(path) as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError) as e:
+            raise ValueError(f"Failed to load session from {path}: {e}") from e
+        return cls(
+            topic=data["topic"],
+            session_id=data["session_id"],
+            created_at=data["created_at"],
+            messages=data["messages"],
+            framework=data.get("framework"),
+        )

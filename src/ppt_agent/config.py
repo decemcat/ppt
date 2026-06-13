@@ -37,7 +37,12 @@ def load_config(path: str | None = None) -> Config:
         path = str(config_dir / "config.yaml")
     config_path = Path(path)
     if config_path.exists():
-        with open(config_path) as f:
-            data = yaml.safe_load(f)
+        try:
+            with open(config_path) as f:
+                data = yaml.safe_load(f)
+        except yaml.YAMLError as e:
+            raise ValueError(f"Invalid YAML in config file {path}: {e}") from e
+        if data is None:
+            return Config()
         return Config.model_validate(data)
     return Config()
