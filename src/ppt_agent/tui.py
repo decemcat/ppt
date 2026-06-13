@@ -36,7 +36,11 @@ class PPTTUI(App):
 
     BINDINGS = [
         Binding("ctrl+q", "quit", "Quit"),
+        Binding("escape", "focus_input", "Focus input", show=False),
     ]
+
+    def action_focus_input(self):
+        self.query_one("#input", TextArea).focus()
 
     def __init__(self, input_queue: queue.Queue):
         super().__init__()
