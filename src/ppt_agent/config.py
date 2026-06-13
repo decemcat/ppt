@@ -51,11 +51,18 @@ class ProxyConfig(BaseModel):
     https: str = "http://127.0.0.1:7890"
 
 
+class DebateConfig(BaseModel):
+    max_rounds: int = 2
+    min_logic_score: int = 85
+    enabled: bool = True
+
+
 class Config(BaseModel):
     template_path: str = ""
     llm: LLMConfig = Field(default_factory=LLMConfig)
     knowledge: KnowledgeConfig = Field(default_factory=KnowledgeConfig)
     proxy: ProxyConfig = Field(default_factory=ProxyConfig)
+    debate: DebateConfig = Field(default_factory=DebateConfig)
 
 
 def load_config(path: str | None = None) -> Config:
