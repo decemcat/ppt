@@ -29,6 +29,7 @@ class LLMConfig(BaseModel):
             "deep_reasoning": "deep",
             "adversarial": "dual",
             "visual_check": "fast",
+            "image_gen": "fast",
         }
     )
 
@@ -67,6 +68,12 @@ class VisualCheckConfig(BaseModel):
     model: str = ""
 
 
+class ImageGenConfig(BaseModel):
+    enabled: bool = False
+    provider: str = "auto"
+    model: str = ""
+
+
 class Config(BaseModel):
     template_path: str = ""
     llm: LLMConfig = Field(default_factory=LLMConfig)
@@ -74,6 +81,7 @@ class Config(BaseModel):
     proxy: ProxyConfig = Field(default_factory=ProxyConfig)
     debate: DebateConfig = Field(default_factory=DebateConfig)
     visual_check: VisualCheckConfig = Field(default_factory=VisualCheckConfig)
+    image_gen: ImageGenConfig = Field(default_factory=ImageGenConfig)
     style_path: str | None = None
 
 

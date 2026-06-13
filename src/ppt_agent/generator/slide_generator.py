@@ -15,6 +15,7 @@ from ppt_agent.generator.quality_check import score_quality
 
 if TYPE_CHECKING:
     from ppt_agent.style.profile import StyleProfile
+    from ppt_agent.generator.image_gen import ImageGenerator
 
 IMAGE_FALLBACK_THRESHOLD = 60
 
@@ -29,6 +30,7 @@ def generate_pptx(
     template_path: str,
     output_path: str = "output.pptx",
     style_profile: StyleProfile | None = None,
+    image_gen: ImageGenerator | None = None,
 ) -> str:
     """Generate a .pptx file from a framework.
 
@@ -40,9 +42,9 @@ def generate_pptx(
     for slide_content in ppt_framework.framework.slides:
         slide = prs.slides.add_slide(blank_layout)
         if slide_content.slide_type == "title":
-            _render_title_slide(slide, slide_content, template_info, style_profile)
+            _render_title_slide(slide, slide_content, template_info, style_profile, image_gen)
         elif slide_content.slide_type == "section_header":
-            _render_section_header(slide, slide_content, template_info, style_profile)
+            _render_section_header(slide, slide_content, template_info, style_profile, image_gen)
         elif slide_content.slide_type == "arch_diagram" and slide_content.diagram:
             _render_arch_slide(slide, slide_content, template_info, style_profile)
         else:
@@ -66,14 +68,28 @@ def _render_slide_title(slide, title: str, template: TemplateInfo, size: int = 2
             break
 
 
-def _render_title_slide(slide, content: SlideContent, template: TemplateInfo, style_profile: StyleProfile | None = None):
+def _render_title_slide(slide, content: SlideContent, template: TemplateInfo, style_profile: StyleProfile | None = None, image_gen: ImageGenerator | None = None):
     _render_slide_title(slide, content.title, template, size=28, style_profile=style_profile)
+    if image_gen and content.title:
+        _insert_ai_image(slide, image_gen, f"A professional presentation cover illustration for: {content.title}", "cover")
     if content.notes:
         slide.notes_slide.notes_text_frame.text = content.notes
 
 
-def _render_section_header(slide, content: SlideContent, template: TemplateInfo, style_profile: StyleProfile | None = None):
-    _render_title_slide(slide, content, template, style_profile=style_profile)
+def _render_section_header(slide, content: SlideContent, template: TemplateInfo, style_profile: StyleProfile | None = None, image_gen: ImageGenerator | None = None):
+    _render_slide_title(slide, content.title, template, style_profile=style_profile)
+    if image_gen and content.title:
+        _insert_ai_image(slide, image_gen, f"A professional section divider illustration for: {content.title}", "section")
+
+
+def _insert_ai_image(slide, image_gen, prompt: str, category: str):
+    tmp_dir = tempfile.mkdtemp()
+    img_path = str(Path(tmp_dir) / f"{category}.png")
+    result = image_gen.generate(prompt, size="1024x1024", output_path=img_path)
+    if result and Path(result).exists():
+        slide.shapes.add_picture(result, Inches(7), Inches(1), width=Inches(5), height=Inches(5))
+    else:
+        pass  # silently skip if image generation fails
 
 
 def _render_text_slide(slide, content: SlideContent, template: TemplateInfo, style_profile: StyleProfile | None = None):

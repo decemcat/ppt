@@ -93,10 +93,16 @@ def run_new_project(
         sp = _P(config.style_path)
         if sp.exists():
             style_profile = _SP.load(sp.stem)
+    image_gen = None
+    if config.image_gen.enabled:
+        from ppt_agent.generator.image_gen import ImageGenerator
+        image_gen = ImageGenerator(config, router)
+        console.print("[cyan]AI 图片生成已启用[/cyan]")
     output = generate_pptx(
         ppt_framework=session.framework,
         template_path=template_path,
         style_profile=style_profile,
+        image_gen=image_gen,
     )
     # Visual quality check
     if config.visual_check.enabled:

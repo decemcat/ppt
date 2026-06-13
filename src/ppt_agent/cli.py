@@ -19,9 +19,10 @@ def cli(ctx, config):
 @click.option("--no-debate", is_flag=True, help="Skip adversarial discussion")
 @click.option("--debate-rounds", default=None, type=int, help="Override debate rounds")
 @click.option("--no-visual-check", is_flag=True, help="Skip visual quality check")
+@click.option("--image-gen", "image_gen_flag", is_flag=True, help="Enable AI image generation")
 @click.option("--style", "style_name", default=None, help="Apply saved style profile")
 @click.pass_context
-def new(ctx, topic, template, model, no_debate, debate_rounds, no_visual_check, style_name):
+def new(ctx, topic, template, model, no_debate, debate_rounds, no_visual_check, image_gen_flag, style_name):
     """Start a new PPT project."""
     from ppt_agent.orchestrator import run_new_project
     config = ctx.obj["config"]
@@ -31,6 +32,8 @@ def new(ctx, topic, template, model, no_debate, debate_rounds, no_visual_check, 
         config.debate.max_rounds = debate_rounds
     if no_visual_check:
         config.visual_check.enabled = False
+    if image_gen_flag:
+        config.image_gen.enabled = True
     if style_name:
         from pathlib import Path as _P
         config.style_path = str(_P.home() / ".ppt-agent" / "styles" / f"{style_name}.yaml")
