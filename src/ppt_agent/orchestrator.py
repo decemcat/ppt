@@ -66,9 +66,9 @@ def orchestrator_task(tui):
 
         tui.ui_log("[bold]▸ Web Search[/bold]")
         tui.ui_subagent_add("web", "searching")
-        tui.ui_busy("openccode run websearch")
+        tui.ui_busy("DuckDuckGo web search")
         tui.ui_log(f"  query: [dim]{topic}[/dim]")
-        tui.ui_log(f"  command: [dim]opencode run websearch {topic}[/dim]")
+        tui.ui_log(f"  engine: DuckDuckGo")
         web_searcher = WebSearcher(proxy=c.proxy)
         web_results = web_searcher.search(topic, num_results=5)
         tui.ui_busy("")

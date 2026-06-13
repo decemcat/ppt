@@ -8,7 +8,7 @@ class SearchResult(BaseModel):
     url: str
     title: str
     snippet: str
-    content: str
+    content: str = ""
     source: Literal["web", "paper", "github"]
     collected_at: datetime = Field(default_factory=datetime.now)
     metadata: dict = Field(default_factory=dict)

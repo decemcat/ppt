@@ -23,6 +23,7 @@ dependencies = [
     "sentence-transformers>=2.0",
     "requests>=2.28",
     "textual>=0.50",
+    "ddgs>=7.0",
 ]
 
 [project.scripts]
