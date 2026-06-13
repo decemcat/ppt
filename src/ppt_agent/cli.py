@@ -77,7 +77,7 @@ def wiki(ctx, serve):
 
 @cli.command("style-extract")
 @click.argument("pptx_path")
-@click.option("--name", default="extracted", help="Style profile name")
+@click.option("--name", default="default", help="Style profile name")
 def style_extract(pptx_path: str, name: str):
     """Extract style profile from a .pptx file."""
     from ppt_agent.style.extractor import StyleExtractor
@@ -93,18 +93,23 @@ def style_list():
     profiles = StyleProfile.list_profiles()
     if profiles:
         for p in profiles:
-            click.echo(p)
+            tag = " [默认]" if p == "default" else ""
+            click.echo(f"  {p}{tag}")
     else:
         click.echo("No style profiles found.")
 
 
 @cli.command("style-show")
-@click.argument("name")
+@click.argument("name", default="default", required=False)
 def style_show(name: str):
-    """Show details of a style profile."""
+    """Show details of a style profile (defaults to 'default')."""
     from ppt_agent.style.profile import StyleProfile
     import yaml
-    profile = StyleProfile.load(name)
+    try:
+        profile = StyleProfile.load(name)
+    except FileNotFoundError:
+        click.echo(f"Style profile '{name}' not found.")
+        return
     click.echo(yaml.dump(profile.model_dump(), allow_unicode=True, default_flow_style=False))
 
 

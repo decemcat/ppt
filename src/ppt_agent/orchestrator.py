@@ -95,6 +95,12 @@ def run_new_project(
             console.print(f"[cyan]已加载风格配置: {style_name}[/cyan]")
         except FileNotFoundError:
             console.print(f"[yellow]风格配置 '{style_name}' 未找到，使用默认样式[/yellow]")
+    else:
+        from ppt_agent.style.profile import StyleProfile as _SP
+        try:
+            style_profile = _SP.load("default")
+        except FileNotFoundError:
+            pass
     from ppt_agent.generator.image_gen import ImageGenerator
     image_gen = ImageGenerator(config, router)
     output = generate_pptx(

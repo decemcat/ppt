@@ -21,9 +21,9 @@ A Python CLI tool (`ppt`) for generating technical solution PPTs from `.pptx` te
 - `ppt wiki` — open LLM Wiki CLI browser
 - `ppt wiki --serve` — open LLM Wiki web server (localhost:8765)
 
-- `.venv/bin/python -m ppt_agent style-extract <pptx_path>` — extract style from .pptx
-- `.venv/bin/python -m ppt_agent style-list` — list saved style profiles
-- `.venv/bin/python -m ppt_agent style-show <name>` — show style profile details
+- `ppt style-extract <pptx_path>` — extract style from .pptx (defaults to "default")
+- `ppt style-list` — list saved style profiles
+- `ppt style-show [name]` — show style profile details (defaults to "default")
 
 > **PEP 668:** Homebrew Python 3.14 refuses `pip install` outside a venv. Always use `.venv`.
 
