@@ -86,9 +86,17 @@ def run_new_project(
             for imp in debate_result.improvements:
                 console.print(f"  ✓ {imp}")
     console.print(Panel("正在生成PPT...", style="blue"))
+    style_profile = None
+    if config.style_path:
+        from ppt_agent.style.profile import StyleProfile as _SP
+        from pathlib import Path as _P
+        sp = _P(config.style_path)
+        if sp.exists():
+            style_profile = _SP.load(sp.stem)
     output = generate_pptx(
         ppt_framework=session.framework,
         template_path=template_path,
+        style_profile=style_profile,
     )
     # Visual quality check
     if config.visual_check.enabled:

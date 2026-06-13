@@ -19,8 +19,9 @@ def cli(ctx, config):
 @click.option("--no-debate", is_flag=True, help="Skip adversarial discussion")
 @click.option("--debate-rounds", default=None, type=int, help="Override debate rounds")
 @click.option("--no-visual-check", is_flag=True, help="Skip visual quality check")
+@click.option("--style", "style_name", default=None, help="Apply saved style profile")
 @click.pass_context
-def new(ctx, topic, template, model, no_debate, debate_rounds, no_visual_check):
+def new(ctx, topic, template, model, no_debate, debate_rounds, no_visual_check, style_name):
     """Start a new PPT project."""
     from ppt_agent.orchestrator import run_new_project
     config = ctx.obj["config"]
@@ -30,6 +31,9 @@ def new(ctx, topic, template, model, no_debate, debate_rounds, no_visual_check):
         config.debate.max_rounds = debate_rounds
     if no_visual_check:
         config.visual_check.enabled = False
+    if style_name:
+        from pathlib import Path as _P
+        config.style_path = str(_P.home() / ".ppt-agent" / "styles" / f"{style_name}.yaml")
     run_new_project(
         topic=topic,
         config=config,
@@ -71,6 +75,39 @@ def wiki(ctx, serve):
     from ppt_agent.research.manager import ResearchManager
     mgr = ResearchManager(ctx.obj["config"])
     mgr.open_wiki(serve=serve)
+
+
+@cli.command("style-extract")
+@click.argument("pptx_path")
+@click.option("--name", default="extracted", help="Style profile name")
+def style_extract(pptx_path: str, name: str):
+    """Extract style profile from a .pptx file."""
+    from ppt_agent.style.extractor import StyleExtractor
+    profile = StyleExtractor.extract(pptx_path, name)
+    path = profile.save()
+    click.echo(f"Style profile '{name}' saved to {path}")
+
+
+@cli.command("style-list")
+def style_list():
+    """List saved style profiles."""
+    from ppt_agent.style.profile import StyleProfile
+    profiles = StyleProfile.list_profiles()
+    if profiles:
+        for p in profiles:
+            click.echo(p)
+    else:
+        click.echo("No style profiles found.")
+
+
+@cli.command("style-show")
+@click.argument("name")
+def style_show(name: str):
+    """Show details of a style profile."""
+    from ppt_agent.style.profile import StyleProfile
+    import yaml
+    profile = StyleProfile.load(name)
+    click.echo(yaml.dump(profile.model_dump(), allow_unicode=True, default_flow_style=False))
 
 
 def main():

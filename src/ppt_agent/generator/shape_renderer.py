@@ -5,9 +5,13 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 from pptx.enum.shapes import MSO_CONNECTOR_TYPE
 from pptx.oxml.ns import qn
+from typing import TYPE_CHECKING
 
 from ppt_agent.models import ArchDiagram, ArchNode, ArchEdge
 from ppt_agent.template.analyzer import TemplateInfo
+
+if TYPE_CHECKING:
+    from ppt_agent.style.profile import StyleProfile
 
 
 def _hex_to_rgb(hex_color: str) -> RGBColor:
@@ -96,13 +100,22 @@ def _get_layout_func(diagram_type: str):
     }.get(diagram_type, layout_layered)
 
 
-def render_diagram_to_slide(slide, diag: ArchDiagram, template: TemplateInfo):
+def render_diagram_to_slide(slide, diag: ArchDiagram, template: TemplateInfo, style_profile: StyleProfile | None = None):
     """Render an ArchDiagram onto a slide using python-pptx shapes."""
     layout_func = _get_layout_func(diag.type)
     positions = layout_func(diag)
-    accent = _hex_to_rgb(template.color_scheme.accent1)
-    dark = _hex_to_rgb(template.color_scheme.dark1)
-    light = _hex_to_rgb(template.color_scheme.light1)
+    if style_profile:
+        accent = _hex_to_rgb(style_profile.colors.accent.lstrip("#") if style_profile.colors.accent.startswith("#") else style_profile.colors.accent)
+        dark = _hex_to_rgb(style_profile.colors.text_primary.lstrip("#") if style_profile.colors.text_primary.startswith("#") else style_profile.colors.text_primary)
+        light = _hex_to_rgb(style_profile.colors.text_light.lstrip("#") if style_profile.colors.text_light.startswith("#") else style_profile.colors.text_light)
+        primary = _hex_to_rgb(style_profile.colors.primary.lstrip("#") if style_profile.colors.primary.startswith("#") else style_profile.colors.primary)
+        secondary = _hex_to_rgb(style_profile.colors.secondary.lstrip("#") if style_profile.colors.secondary.startswith("#") else style_profile.colors.secondary)
+    else:
+        accent = _hex_to_rgb(template.color_scheme.accent1)
+        dark = _hex_to_rgb(template.color_scheme.dark1)
+        light = _hex_to_rgb(template.color_scheme.light1)
+        primary = accent
+        secondary = accent
     node_map = {n.id: n for n in diag.nodes}
     for node in diag.nodes:
         pos = positions.get(node.id)
@@ -114,7 +127,7 @@ def render_diagram_to_slide(slide, diag: ArchDiagram, template: TemplateInfo):
         )
         shape.fill.solid()
         if node.style == "group":
-            shape.fill.fore_color.rgb = accent
+            shape.fill.fore_color.rgb = primary if style_profile else accent
             shape.line.fill.background()
         else:
             shape.fill.fore_color.rgb = light
@@ -124,8 +137,13 @@ def render_diagram_to_slide(slide, diag: ArchDiagram, template: TemplateInfo):
         tf.word_wrap = True
         p = tf.paragraphs[0]
         p.text = node.label
-        p.font.size = Pt(12)
-        p.font.color.rgb = light if node.style == "group" else dark
+        if style_profile:
+            p.font.size = Pt(style_profile.fonts.body_size)
+            p.font.name = style_profile.fonts.body_font
+            p.font.color.rgb = style_profile.colors.text_light if node.style == "group" else style_profile.colors.text_primary
+        else:
+            p.font.size = Pt(12)
+            p.font.color.rgb = light if node.style == "group" else dark
         p.alignment = PP_ALIGN.CENTER
     for edge in diag.edges:
         from_pos = positions.get(edge.from_id)
@@ -150,5 +168,9 @@ def render_diagram_to_slide(slide, diag: ArchDiagram, template: TemplateInfo):
             tf = label_box.text_frame
             p = tf.paragraphs[0]
             p.text = edge.label
-            p.font.size = Pt(9)
-            p.font.color.rgb = accent
+            if style_profile:
+                p.font.size = Pt(style_profile.fonts.caption_size)
+                p.font.color.rgb = _hex_to_rgb(style_profile.colors.secondary.lstrip("#") if style_profile.colors.secondary.startswith("#") else style_profile.colors.secondary)
+            else:
+                p.font.size = Pt(9)
+                p.font.color.rgb = accent

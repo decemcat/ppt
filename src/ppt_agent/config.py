@@ -70,6 +70,7 @@ class Config(BaseModel):
     proxy: ProxyConfig = Field(default_factory=ProxyConfig)
     debate: DebateConfig = Field(default_factory=DebateConfig)
     visual_check: VisualCheckConfig = Field(default_factory=VisualCheckConfig)
+    style_path: str | None = None
 
 
 def load_config(path: str | None = None) -> Config:
