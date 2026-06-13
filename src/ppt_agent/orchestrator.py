@@ -8,37 +8,50 @@ from ppt_agent.generator.slide_generator import generate_pptx
 SYSTEM_PROMPT = """You are PPT Agent, a professional technical presentation assistant.
 
 Workflow:
-1. Understand user requirements through conversation
-2. Propose a research plan
-3. Execute research (web, papers, GitHub)
-4. Discuss findings and refine direction
+1. Understand the problem domain and user's knowledge needs
+2. Research deeply to gather insights, facts, and expert perspectives
+3. Summarize key findings
+4. Discuss how to structure the presentation based on insights
 5. Build a slide framework
 6. Generate .pptx file
 
-Be concise, logical, and focused on business/professional contexts."""
+Be concise, logical, and focused on substance over format."""
 
-REQUIREMENTS_PROMPT = """You are helping the user define their presentation needs. Ask clarifying questions to understand:
+REQUIREMENTS_PROMPT = """You are a business/technical consultant doing discovery. Your goal is to deeply understand the user's domain, problem, and what they need to communicate — NOT to plan slides yet.
 
-1. Topic and scope - what exactly is the presentation about?
-2. Audience - who will see this? (executives, engineers, general)
-3. Depth - high-level overview or deep technical dive?
-4. Format - pitch deck, technical report, status update, proposal?
-5. Constraints - any specific requirements, company templates, deadlines?
+Ask probing questions to clarify:
+1. What problem or topic do they want to communicate about? Why now?
+2. Who are they trying to convince or inform? What would change their mind?
+3. What do they already know vs what needs external research?
+4. What's their unique angle or perspective on this topic?
+5. What are the stakes — what happens if communication succeeds or fails?
 
-Engage in a natural conversation. When the user's intent is clear, say "/ready" to move to the next phase.
+DO NOT ask about slide count, format, templates, or presentation style. Focus entirely on understanding the subject matter and communication goals. When you have a clear picture of the domain and needs, say "/ready".
 
 Current context:\n\n{history}"""
 
-RESEARCH_PLAN_PROMPT = """Based on the discussion above, propose a research plan for this presentation.
+RESEARCH_PLAN_PROMPT = """Based on the domain and communication needs discussed above, propose a research plan to gather insights.
 
 Output a concise plan with:
-1. Key areas to investigate (3-5 bullet points)
-2. Search queries for web/papers/GitHub (3-5 specific queries)
-3. Expected output format (how many slides, which sections)
+1. Key areas to investigate — what knowledge gaps to fill (3-5 bullet points)
+2. Search queries for web/papers/GitHub (3-5 specific queries targeting the domain)
+3. What kind of insights we're looking for (data, case studies, expert opinions, trends, trade-offs)
 
-Keep it focused and actionable. The user will confirm before research begins.
+Focus on learning. The user will confirm before research begins.
 
 Requirements:\n{requirements}"""
+
+PPT_DISCUSSION_PROMPT = """You have deep research insights about the topic. Now help the user plan how to structure their presentation.
+
+Based on the research below, discuss:
+1. What are the most compelling insights that should go into the presentation?
+2. What narrative structure would work best given the audience and goals?
+3. What key messages should each section convey?
+4. What diagrams or visuals would help communicate complex ideas?
+
+When the user is satisfied with the direction, type /done.
+
+Research:\n{research_summary}"""
 
 _config: Config | None = None
 
@@ -152,11 +165,11 @@ def orchestrator_task(tui):
         tui.ui_model(f"{c.llm.default_provider}:{model}")
 
         # ── Phase 1: Requirements Gathering ──
-        tui.ui_log("[bold]▸ Requirements Gathering[/bold]")
-        tui.ui_log("[dim]Tell me what presentation you need. I'll ask clarifying questions.[/dim]")
-        tui.ui_log("[dim]Type /done when you feel we've aligned.[/dim]")
+        tui.ui_log("[bold]▸ Requirements[/bold]")
+        tui.ui_log("[dim]Tell me about the problem or topic you want to communicate. What's the context?[/dim]")
+        tui.ui_log("[dim]I'll ask questions to understand your domain before we do any research.[/dim]")
         tui.ui_task_running("Requirements")
-        tui.ui_task_desc("Requirements alignment")
+        tui.ui_task_desc("Understanding your domain")
 
         req_msgs = [
             {"role": "system", "content": REQUIREMENTS_PROMPT.replace("{history}", "")},
@@ -173,8 +186,8 @@ def orchestrator_task(tui):
             tui.ui_log(f"[bold cyan]You:[/bold cyan] {ui[:200]}")
             req_msgs.append({"role": "user", "content": ui})
             hist = "\n".join(m["content"][:300] for m in req_msgs[-6:])
-            tui.ui_task_desc("Clarifying...")
-            tui.ui_busy("Understanding requirements")
+            tui.ui_task_desc("Clarifying domain")
+            tui.ui_busy("Understanding your domain")
             resp = provider.chat(
                 [{"role": "system", "content": REQUIREMENTS_PROMPT.replace("{history}", hist)}] + req_msgs[-6:],
                 model=model,
@@ -195,9 +208,10 @@ def orchestrator_task(tui):
 
         # ── Phase 2: Research Plan ──
         tui.ui_log("[bold]▸ Research Plan[/bold]")
+        tui.ui_log("[dim]Based on our discussion, here's what we should investigate:[/dim]")
         tui.ui_task_running("Research Plan")
         tui.ui_task_desc("Planning research")
-        tui.ui_busy("Generating research plan")
+        tui.ui_busy("Building research plan")
 
         plan_msg = [
             {"role": "system", "content": RESEARCH_PLAN_PROMPT.replace("{requirements}", requirements_summary)},
@@ -353,11 +367,13 @@ def orchestrator_task(tui):
 
         # ── Phase 5: Discussion ──
         tui.ui_log("[dim]─" * 40 + "[/dim]")
-        tui.ui_log("[bold]▸ Discussion[/bold]")
-        tui.ui_log("[dim]Discuss the research findings. /done when ready for framework.[/dim]")
+        tui.ui_log("[bold]▸ PPT Strategy[/bold]")
+        tui.ui_log("[dim]Now that we have research insights, let's plan the presentation structure.[/dim]")
+        tui.ui_log("[dim]Discuss narrative, key messages, and flow. /done when ready for framework.[/dim]")
         tui.ui_task_running("Discuss")
-        discuss_prompt = SYSTEM_PROMPT.replace("{research_summary}", summary) if "{research_summary}" in SYSTEM_PROMPT else SYSTEM_PROMPT + "\n\nResearch:\n" + summary
-        result = _chat_loop(tui, session, provider, model, discuss_prompt, end_cmd="/done", label="Discuss")
+        result = _chat_loop(tui, session, provider, model,
+                            PPT_DISCUSSION_PROMPT.replace("{research_summary}", summary),
+                            end_cmd="/done", label="PPT strategy")
         if result is None:
             return
         tui.ui_task_done("Discuss")
