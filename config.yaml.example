@@ -66,6 +66,7 @@ visual_check:
 image_gen:
   provider: auto       # auto = 跟随 default_provider; 未配置 API Key 时自动跳过
   model: ""            # 如 "dall-e-3"；留空 = 使用 fast_model
+  base_url: ""         # 完整端点 URL; 留空默认 https://api.openai.com/v1/images/generations
 
 # --- 模板与风格 ---
 template_path: ""            # .pptx 模板路径

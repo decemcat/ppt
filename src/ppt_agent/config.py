@@ -71,6 +71,7 @@ class VisualCheckConfig(BaseModel):
 class ImageGenConfig(BaseModel):
     provider: str = "auto"
     model: str = ""
+    base_url: str = ""
 
 
 class Config(BaseModel):

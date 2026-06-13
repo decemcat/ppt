@@ -5,6 +5,8 @@ from pathlib import Path
 from ppt_agent.config import Config
 from ppt_agent.llm.router import ModelRouter
 
+DEFAULT_IMAGE_URL = "https://api.openai.com/v1/images/generations"
+
 
 class ImageGenerator:
     """Generate images using OpenAI DALL-E or compatible APIs."""
@@ -19,15 +21,14 @@ class ImageGenerator:
             provider, model = router.get_model("image_gen")
             provider_config = config.llm.providers[config.llm.default_provider]
         self.api_key = provider_config.api_key
-        self.base_url = provider_config.base_url.rstrip("/") if provider_config.base_url else ""
         self.model = model
+        self.url = ig.base_url or DEFAULT_IMAGE_URL
 
     def generate(self, prompt: str, size: str = "1024x1024", output_path: str | None = None) -> str:
-        url = self.base_url + "/v1/images/generations" if self.base_url else "https://api.openai.com/v1/images/generations"
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
         payload = {"model": self.model, "prompt": prompt, "n": 1, "size": size}
         try:
-            resp = requests.post(url, json=payload, headers=headers, timeout=60)
+            resp = requests.post(self.url, json=payload, headers=headers, timeout=60)
             resp.raise_for_status()
             data = resp.json()
             image_url = data["data"][0].get("url") or data["data"][0].get("b64_json")
