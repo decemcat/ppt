@@ -13,6 +13,7 @@ class Session:
         created_at: str | None = None,
         messages: list[dict] | None = None,
         framework: dict | None = None,
+        template_path: str | None = None,
         session_dir: str | None = None,
     ):
         self.session_id = session_id or str(uuid.uuid4())[:8]
@@ -20,6 +21,7 @@ class Session:
         self.created_at = created_at or datetime.now().isoformat()
         self.messages = messages or []
         self.framework = framework
+        self.template_path = template_path
         self.session_dir = session_dir or str(Path.home() / ".ppt-agent" / "sessions")
 
     def add_message(self, role: str, content: str, metadata: dict | None = None):
@@ -41,6 +43,7 @@ class Session:
                 "created_at": self.created_at,
                 "messages": self.messages,
                 "framework": self.framework,
+                "template_path": self.template_path,
             }, f, ensure_ascii=False, indent=2)
         return str(file_path)
 
@@ -57,4 +60,5 @@ class Session:
             created_at=data["created_at"],
             messages=data["messages"],
             framework=data.get("framework"),
+            template_path=data.get("template_path"),
         )

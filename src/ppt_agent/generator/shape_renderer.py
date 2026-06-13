@@ -3,6 +3,8 @@ from pptx import Presentation
 from pptx.util import Inches, Pt, Emu
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
+from pptx.enum.shapes import MSO_CONNECTOR_TYPE
+from pptx.oxml.ns import qn
 
 from ppt_agent.models import ArchDiagram, ArchNode, ArchEdge
 from ppt_agent.template.analyzer import TemplateInfo
@@ -134,16 +136,19 @@ def render_diagram_to_slide(slide, diag: ArchDiagram, template: TemplateInfo):
         from_cy = from_pos["y"] + from_pos["h"]
         to_cx = to_pos["x"] + to_pos["w"] // 2
         to_cy = to_pos["y"]
-        import math
-        dx = to_cx - from_cx
-        dy = to_cy - from_cy
-        length = int(math.sqrt(dx * dx + dy * dy))
-        if length == 0:
-            continue
-        angle = math.degrees(math.atan2(dy, dx))
-        connector = slide.shapes.add_shape(
-            1, from_cx, from_cy, Emu(int(length * 0.8)), Emu(6000),
+        connector = slide.shapes.add_connector(
+            MSO_CONNECTOR_TYPE.STRAIGHT,
+            from_cx, from_cy, to_cx, to_cy,
         )
-        connector.fill.solid()
-        connector.fill.fore_color.rgb = accent
-        connector.line.fill.background()
+        connector.line.color.rgb = accent
+        connector.line.width = Pt(1.5)
+        if edge.label:
+            # Add a text label near the midpoint
+            mid_x = (from_cx + to_cx) // 2
+            mid_y = (from_cy + to_cy) // 2
+            label_box = slide.shapes.add_textbox(mid_x, mid_y - Emu(100000), Emu(800000), Emu(200000))
+            tf = label_box.text_frame
+            p = tf.paragraphs[0]
+            p.text = edge.label
+            p.font.size = Pt(9)
+            p.font.color.rgb = accent

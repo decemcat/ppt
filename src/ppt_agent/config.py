@@ -1,7 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class LLMProviderConfig(BaseModel):
@@ -12,23 +12,27 @@ class LLMProviderConfig(BaseModel):
 
 class LLMConfig(BaseModel):
     default_provider: str = "openai"
-    providers: dict[str, LLMProviderConfig] = {
-        "openai": LLMProviderConfig(),
-        "anthropic": LLMProviderConfig(
-            fast_model="claude-sonnet-4-20250514",
-            deep_model="claude-thinking-4-20250514",
-        ),
-    }
-    routing: dict[str, str] = {
-        "daily_chat": "fast",
-        "deep_reasoning": "deep",
-        "adversarial": "dual",
-    }
+    providers: dict[str, LLMProviderConfig] = Field(
+        default_factory=lambda: {
+            "openai": LLMProviderConfig(),
+            "anthropic": LLMProviderConfig(
+                fast_model="claude-sonnet-4-20250514",
+                deep_model="claude-thinking-4-20250514",
+            ),
+        }
+    )
+    routing: dict[str, str] = Field(
+        default_factory=lambda: {
+            "daily_chat": "fast",
+            "deep_reasoning": "deep",
+            "adversarial": "dual",
+        }
+    )
 
 
 class Config(BaseModel):
     template_path: str = ""
-    llm: LLMConfig = LLMConfig()
+    llm: LLMConfig = Field(default_factory=LLMConfig)
 
 
 def load_config(path: str | None = None) -> Config:

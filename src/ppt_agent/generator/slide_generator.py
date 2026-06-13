@@ -31,9 +31,9 @@ def generate_pptx(
     """
     template_info = analyze_template(template_path)
     prs = Presentation(template_path)
-    content_layout = prs.slide_layouts[1]  # Title and Content
+    blank_layout = prs.slide_layouts[0]  # Use first layout (usually blank)
     for slide_content in ppt_framework.framework.slides:
-        slide = prs.slides.add_slide(content_layout)
+        slide = prs.slides.add_slide(blank_layout)
         if slide_content.slide_type == "title":
             _render_title_slide(slide, slide_content, template_info)
         elif slide_content.slide_type == "section_header":
@@ -46,14 +46,18 @@ def generate_pptx(
     return output_path
 
 
-def _render_title_slide(slide, content: SlideContent, template: TemplateInfo):
+def _render_slide_title(slide, title: str, template: TemplateInfo, size: int = 24):
     for shape in slide.shapes:
         if hasattr(shape, "text_frame"):
             p = shape.text_frame.paragraphs[0]
-            p.text = content.title
-            p.font.size = Pt(28)
+            p.text = title
+            p.font.size = Pt(size)
             p.font.color.rgb = _hex_to_rgb(template.color_scheme.dark1)
             break
+
+
+def _render_title_slide(slide, content: SlideContent, template: TemplateInfo):
+    _render_slide_title(slide, content.title, template, size=28)
     if content.notes:
         slide.notes_slide.notes_text_frame.text = content.notes
 
@@ -63,13 +67,7 @@ def _render_section_header(slide, content: SlideContent, template: TemplateInfo)
 
 
 def _render_text_slide(slide, content: SlideContent, template: TemplateInfo):
-    for shape in slide.shapes:
-        if hasattr(shape, "text_frame"):
-            p = shape.text_frame.paragraphs[0]
-            p.text = content.title
-            p.font.size = Pt(24)
-            p.font.color.rgb = _hex_to_rgb(template.color_scheme.dark1)
-            break
+    _render_slide_title(slide, content.title, template, size=24)
     if content.bullets:
         for shape in slide.shapes:
             if hasattr(shape, "text_frame") and shape.has_text_frame:
@@ -87,6 +85,7 @@ def _render_text_slide(slide, content: SlideContent, template: TemplateInfo):
 
 
 def _render_arch_slide(slide, content: SlideContent, template: TemplateInfo):
+    _render_slide_title(slide, content.title, template)
     diag = content.diagram
     render_diagram_to_slide(slide, diag, template)
     quality = score_quality(slide, template.slide_width, template.slide_height)

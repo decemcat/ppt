@@ -42,6 +42,7 @@ def run_new_project(
         pass
     else:
         template_path = config.template_path
+    session.template_path = template_path
     router = ModelRouter(config)
     provider, model = router.get_model("daily_chat")
     console.print(Panel("请描述你的PPT思路，我会与你讨论并帮助完善框架。输入 /done 结束讨论进入生成阶段。", style="green"))
@@ -97,7 +98,7 @@ def run_resume_session(session_path: str, config: Config):
         session.add_message("assistant", response)
         console.print(Panel(response, style="yellow"))
     _finalize_framework(session, provider, model)
-    template_path = config.template_path
+    template_path = session.template_path or config.template_path
     output = generate_pptx(
         ppt_framework=session.framework,
         template_path=template_path,
@@ -117,28 +118,24 @@ def _show_current_framework(session: Session):
 def _finalize_framework(session: Session, provider, model: str):
     """Use LLM to produce final structured framework from conversation history."""
     messages = [
-        {"role": "system", "content": "基于对话历史，输出最终的PPT框架。必须以JSON格式输出，使用PPTFramework结构。"},
+        {"role": "system", "content": "基于对话历史，输出最终的PPT框架。"},
         *[{"role": m["role"], "content": m["content"]} for m in session.messages],
-        {"role": "user", "content": "请输出最终的PPT框架（JSON格式，包含slides列表，每页有title, slide_type, bullets或diagram字段）"},
+        {"role": "user", "content": "请根据讨论输出最终的PPT框架，包含slides列表。每页有title、slide_type（title/text/arch_diagram/bullets/section_header）、bullets列表和可选的diagram字段。"},
     ]
     with console.status("正在整理框架..."):
-        response = provider.chat(messages, model=model)
-    import json
-    try:
-        data = json.loads(response)
-        framework = PPTFramework(**data)
-        session.framework = framework
-        console.print("[green]框架已确认:[/green]")
-        _show_current_framework(session)
-    except (json.JSONDecodeError, Exception) as e:
-        console.print(f"[yellow]框架解析出错，使用默认结构: {e}[/yellow]")
-        framework = PPTFramework(
-            title=session.topic,
-            framework=SlideFramework(slides=[
-                SlideContent(title=session.topic, slide_type="title"),
-                SlideContent(title="背景", slide_type="text", bullets=["内容待补充"]),
-                SlideContent(title="方案总览", slide_type="arch_diagram"),
-                SlideContent(title="总结", slide_type="text", bullets=["内容待补充"]),
-            ]),
-        )
-        session.framework = framework
+        try:
+            framework = provider.chat_structured(messages, PPTFramework, model=model)
+            session.framework = framework
+            console.print("[green]框架已确认:[/green]")
+            _show_current_framework(session)
+        except Exception as e:
+            console.print(f"[yellow]框架解析出错，使用默认结构: {e}[/yellow]")
+            session.framework = PPTFramework(
+                title=session.topic,
+                framework=SlideFramework(slides=[
+                    SlideContent(title=session.topic, slide_type="title"),
+                    SlideContent(title="背景", slide_type="text", bullets=["内容待补充"]),
+                    SlideContent(title="方案总览", slide_type="arch_diagram"),
+                    SlideContent(title="总结", slide_type="text", bullets=["内容待补充"]),
+                ]),
+            )
