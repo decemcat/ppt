@@ -17,8 +17,8 @@ class PPTTUI(App):
     CSS = """
     Screen { layout: vertical; background: #0d1117; }
     #main { height: 1fr; }
-    #left { width: 2fr; background: #0d1117; }
-    #right { width: 1fr; background: #161b22; padding: 1; }
+    #left { width: 2fr; background: #0d1117; height: 100%; overflow: hidden; }
+    #right { width: 1fr; background: #161b22; padding: 1; height: 100%; overflow: hidden; }
     #logs { height: 1fr; background: #0d1117; padding: 0 1; }
     #busy { background: #0d1117; padding: 0 1 0 1; color: $warning; height: 1; }
     #input_area { background: #0d1117; padding: 1; height: auto; }
